@@ -1,0 +1,16 @@
+{
+  "_fixture_note": "UNTRIMMED. Full real response.",
+  "_fixture_source": "https://api.gold-api.com/price/XAU",
+  "_fixture_method": "GET, no auth, no API key",
+  "_fixture_captured_at": "2026-08-12T10:12Z (captured live)",
+  "response": {
+    "currency": "USD",
+    "currencySymbol": "$",
+    "exchangeRate": 1.0,
+    "name": "Gold",
+    "price": 4397.5,
+    "symbol": "XAU",
+    "updatedAt": "2026-08-12T06:42:38Z",
+    "updatedAtReadable": "a few seconds ago"
+  }
+}

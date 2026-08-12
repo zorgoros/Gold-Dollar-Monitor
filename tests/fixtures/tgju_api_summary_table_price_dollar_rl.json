@@ -1,0 +1,62 @@
+{
+  "_fixture_note": "TRIMMED. Real captured response. `data` had 3925 daily OHLC rows (full history back to 2011, ~640KB); kept the newest 5. recordsTotal/recordsFiltered left at their original values. Row columns are positional: [open, low, high, close, change_html, pct_html, gregorian_date, jalali_date].",
+  "_fixture_source": "https://api.tgju.org/v1/market/indicator/summary-table-data/price_dollar_rl",
+  "_fixture_method": "GET, no auth, no API key",
+  "_fixture_captured_at": "2026-08-12T10:12Z (captured live)",
+  "_fixture_unit": "rial (IRR) - divide by 10 for toman",
+  "draw": null,
+  "recordsTotal": 3925,
+  "recordsFiltered": 3925,
+  "data": [
+    [
+      "1,852,100",
+      "1,851,800",
+      "1,880,200",
+      "1,878,000",
+      "<span class=\"high\" dir=\"ltr\">22000</span>",
+      "<span class=\"high\" dir=\"ltr\">1.19%</span>",
+      "2026/08/11",
+      "1405/05/20"
+    ],
+    [
+      "1,857,100",
+      "1,846,800",
+      "1,867,200",
+      "1,856,000",
+      "<span class=\"high\" dir=\"ltr\">2000</span>",
+      "<span class=\"high\" dir=\"ltr\">0.11%</span>",
+      "2026/08/10",
+      "1405/05/19"
+    ],
+    [
+      "1,857,100",
+      "1,846,800",
+      "1,867,200",
+      "1,854,000",
+      "<span class=\"low\" dir=\"ltr\">5000</span>",
+      "<span class=\"low\" dir=\"ltr\">0.27%</span>",
+      "2026/08/09",
+      "1405/05/18"
+    ],
+    [
+      "1,879,950",
+      "1,854,800",
+      "1,880,200",
+      "1,859,000",
+      "<span class=\"low\" dir=\"ltr\">21200</span>",
+      "<span class=\"low\" dir=\"ltr\">1.14%</span>",
+      "2026/08/08",
+      "1405/05/17"
+    ],
+    [
+      "1,880,050",
+      "1,867,800",
+      "1,882,200",
+      "1,880,200",
+      "<span class=\"high\" dir=\"ltr\">200</span>",
+      "<span class=\"high\" dir=\"ltr\">0.01%</span>",
+      "2026/08/06",
+      "1405/05/15"
+    ]
+  ]
+}

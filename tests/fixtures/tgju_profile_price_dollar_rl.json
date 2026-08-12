@@ -1,0 +1,41 @@
+{
+  "_fixture_note": "TRIMMED / DERIVED. This endpoint returns HTML (~880KB), not JSON, so this fixture is a JSON envelope holding the verbatim HTML fragments that carry the price and the unit, plus the parsed values. It is the authoritative evidence that TGJU quotes these symbols in RIAL.",
+  "_fixture_source": "https://www.tgju.org/profile/price_dollar_rl",
+  "_fixture_method": "GET, no auth, returns text/html; charset=UTF-8",
+  "_fixture_captured_at": "2026-08-12T10:13Z (captured live)",
+  "parsed": {
+    "symbol": "price_dollar_rl",
+    "page_title_fa": "قیمت دلار آزاد | شبکه اطلاع‌ رسانی طلا و ارز",
+    "price_string": "1,878,000",
+    "unit_label_fa": "ریال",
+    "unit_resolved": "rial (IRR)",
+    "toman_value": 187800
+  },
+  "raw_html_fragments": {
+    "unit_field": "\"profile-tour-step-3\"> <span class=\"label\"><i class=\"square background-yello\"></i>واحد پولی :</span> <span class=\"value\">ریال</span> </h3> <h3 class=\"line clearfix\" data-target=\"profile-to",
+    "current_price_field": "class=\"title\">نرخ فعلی::</span> <span class=\"price\" data-col=\"info.last_trade.PDrCotVal\">1,878,000</span> <span class=\"change-tag\" dat",
+    "faq_price_with_unit": "قیمت هر دلار,نرخ لحظه ای دلار,محاسبه گر قیمت دلار,قیمت دلار امروز,قیمت آنلاین دلار,قیمت دلار جهانی,نمودار تحولات دلار,نمودار زنده قیمت دلار,قیمت دلار مبادله ای,قیمت دلار در مرکز مبادلات ارزی,نمودار دل"
+  },
+  "unit_labels_all_four_symbols": {
+    "price_dollar_rl": {
+      "unit_label_fa": "ریال",
+      "price_shown": "1,878,000",
+      "page_title_fa": "قیمت دلار آزاد | شبکه اطلاع‌ رسانی طلا و ارز"
+    },
+    "geram18": {
+      "unit_label_fa": "ریال",
+      "price_shown": "192,056,000",
+      "page_title_fa": "قیمت طلای 18 عیار / 750 | شبکه اطلاع‌ رسانی طلا و ارز"
+    },
+    "sekee": {
+      "unit_label_fa": "ریال",
+      "price_shown": "1,894,850,000",
+      "page_title_fa": "قیمت سکه امامی | شبکه اطلاع‌ رسانی طلا و ارز"
+    },
+    "ons": {
+      "unit_label_fa": "دلار",
+      "price_shown": "4,396.19",
+      "page_title_fa": "قیمت انس طلا | شبکه اطلاع‌ رسانی طلا و ارز"
+    }
+  }
+}

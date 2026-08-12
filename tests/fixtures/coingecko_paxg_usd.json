@@ -1,0 +1,12 @@
+{
+  "_fixture_note": "UNTRIMMED. Full real response.",
+  "_fixture_source": "https://api.coingecko.com/api/v3/simple/price?ids=pax-gold&vs_currencies=usd&include_last_updated_at=true",
+  "_fixture_method": "GET, no auth, no API key",
+  "_fixture_captured_at": "2026-08-12T10:12Z (captured live)",
+  "response": {
+    "pax-gold": {
+      "usd": 4389.55,
+      "last_updated_at": 1786516830
+    }
+  }
+}
