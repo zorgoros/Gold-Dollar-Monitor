@@ -6,7 +6,11 @@ directions — algebraic inversions. Never score them as independent evidence.
 
 from __future__ import annotations
 
-from ..domain.constants import GOLD_18_CONVERSION
+from ..domain.constants import (
+    EMAMI_COIN_PURE_GRAMS,
+    GOLD_18_CONVERSION,
+    TROY_OUNCE_GRAMS,
+)
 from ..domain.errors import AnalysisError
 
 
@@ -38,3 +42,15 @@ def gap_pct(market: float, reference: float) -> float:
     m = _positive("market", market)
     r = _positive("reference", reference)
     return (m / r - 1.0) * 100.0
+
+
+def emami_coin_intrinsic(xau_usd: float, usd_market_toman: float) -> float:
+    """Gold content of one Emami coin valued at the world ounce and market USD.
+
+    Melt value only — it excludes the minting and demand premium that makes up
+    the coin's bubble, which is the point of comparing the two.
+    """
+    xau = _positive("xau_usd", xau_usd)
+    usd = _positive("usd_market", usd_market_toman)
+    toman_per_gram_pure = xau * usd / TROY_OUNCE_GRAMS
+    return toman_per_gram_pure * EMAMI_COIN_PURE_GRAMS
