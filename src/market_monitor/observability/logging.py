@@ -34,3 +34,9 @@ def configure(level: str = "INFO") -> None:
     root = logging.getLogger()
     root.handlers = [handler]
     root.setLevel(level.upper())
+
+    # httpx logs every request URL at INFO, and the Telegram URL contains the
+    # bot token — so at INFO the token lands in logs/run.log. Nothing this
+    # library says at INFO is worth that.
+    for noisy in ("httpx", "httpcore"):
+        logging.getLogger(noisy).setLevel(logging.WARNING)
