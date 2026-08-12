@@ -1,0 +1,17 @@
+[Unit]
+Description=Iran market monitor — one report run
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=monitor
+WorkingDirectory=/srv/market-monitor
+Environment=TZ=Asia/Tehran
+EnvironmentFile=/srv/market-monitor/.env
+ExecStart=/srv/market-monitor/.venv/bin/market-monitor run-once
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/srv/market-monitor/data /srv/market-monitor/logs

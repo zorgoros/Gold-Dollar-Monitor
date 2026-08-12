@@ -1,0 +1,7 @@
+# /etc/cron.d/market-monitor
+# Slots must match [schedule].reports in config/default.toml.
+CRON_TZ=Asia/Tehran
+SHELL=/bin/bash
+
+0 9,13,17,21 * * * monitor cd /srv/market-monitor && .venv/bin/market-monitor run-once >> logs/run.log 2>&1
+30 2 * * *        monitor /srv/market-monitor/scripts/backup_db.sh /var/backups/market-monitor >> /srv/market-monitor/logs/backup.log 2>&1

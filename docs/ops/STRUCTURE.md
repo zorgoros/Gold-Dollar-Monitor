@@ -27,6 +27,8 @@ exist yet; create them when the phase that needs them lands (§35), not before.
 | `docs/` | FORMULAS, PROVIDERS, OPERATIONS, BACKTESTING | code |
 | `docs/ops/` | LEDGER, HANDOFF, MEMORY, this file | anything else |
 | `data/` | the SQLite database — gitignored | anything tracked |
+| `logs/` | run and backup output — gitignored | anything tracked |
+| `.github/workflows/` | CI definitions | anything needing a secret to run |
 
 Root holds only: `README.md`, `ARCHITECTURE.md`, `EXTENSIONS.md`,
 `CHANGELOG.md`, `LICENSE`, `CLAUDE.md`, `AGENTS.md`, `.env.example`,

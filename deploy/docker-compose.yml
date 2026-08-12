@@ -1,0 +1,16 @@
+# One-shot container driven by the host scheduler. There is no daemon to keep
+# alive — a report run takes seconds, so cron on the host beats a sleeping loop.
+services:
+  market-monitor:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    image: market-monitor:latest
+    env_file: ../.env
+    environment:
+      TZ: Asia/Tehran
+      DATABASE_URL: sqlite:///data/market.db
+    volumes:
+      - ../data:/app/data
+    restart: "no"
+    command: ["run-once"]

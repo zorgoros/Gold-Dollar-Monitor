@@ -1,0 +1,10 @@
+[Unit]
+Description=Run the market monitor at the configured Tehran slots
+
+[Timer]
+# Must match [schedule].reports in config/default.toml.
+OnCalendar=*-*-* 09,13,17,21:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
