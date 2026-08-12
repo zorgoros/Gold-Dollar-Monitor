@@ -44,3 +44,8 @@ Blocked: none
 Did: added MIT licence, DISCLAIMER, SECURITY, NOTICE, report attribution; pushed to github.com/zorgoros/Gold-Dollar-Monitor; CI green
 Next: wire Telegram credentials and do the controlled test publish
 Blocked: none
+
+## 2026-08-12 15:30 · claude-solo
+Did: V1 shipped: published to Telegram, footer channel line, Persian pinned-message doc, token-in-logs fix
+Next: V1.1 scope
+Blocked: none
