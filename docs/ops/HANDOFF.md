@@ -29,3 +29,8 @@ Blocked: <what stopped you, or none>
 ```
 
 ## Log
+
+## 2026-08-12 10:04 · claude-solo
+Did: pos init; filled STRUCTURE map from ARCHITECTURE.md s17; trimmed CLAUDE/AGENTS to budget; renamed spec to ARCHITECTURE.md; git init + first commit
+Next: Phase 0 bootstrap: pyproject, src/market_monitor skeleton, config/default.yaml, .env.example
+Blocked: none

@@ -4,20 +4,16 @@ Guidance for Claude Code (claude.ai/code) in this repository.
 
 ## State of the repository
 
-No code yet. [ARCHITECTURE.md](ARCHITECTURE.md) is the canonical V1 spec and
-source of truth (~1500 lines): target tree (§17), DB schema (§10), formulas
-(§4), error taxonomy (§24), phased build order (§35), definition of done (§36).
-Read the section you need, not the file.
+No code yet. [ARCHITECTURE.md](ARCHITECTURE.md) is the V1 spec and source of
+truth (~1500 lines) — read the section you need, not the file: formulas §4,
+DB §10, tree §17, error taxonomy §24, build phases §35, done §36, non-goals §37.
 
-Target: Python 3.12+, package under `src/market_monitor/`, SQLite, few
-dependencies (`httpx`, pydantic/dataclasses, pytest, ruff, mypy; APScheduler
-only if app-level scheduling wins over cron).
+Target: Python 3.12+, `src/market_monitor/`, SQLite, few dependencies (`httpx`,
+pydantic/dataclasses, pytest, ruff, mypy; APScheduler only if it beats cron).
 
 ```bash
-python -m pytest                                     # all tests
-python -m pytest tests/unit/test_gold.py::test_name  # one test
-ruff check src tests && ruff format --check src tests
-mypy src
+python -m pytest                                     # all; -k or ::name for one
+ruff check src tests && ruff format --check src tests && mypy src
 market-monitor run-once                              # full pipeline once
 market-monitor report --dry-run                      # render only, never sends
 ```
@@ -28,33 +24,33 @@ providers → normalization → immutable raw storage → analysis → signals �
 reporting → publishers. Every arrow is a boundary that stays replaceable.
 Providers are adapters returning normalized `Quote` objects; nothing downstream
 knows TGJU exists. Analysis is pure and deterministic — no LLM in the numeric
-path. Reporting and publishers consume serializable analytical output (widget
-JSON contract, §20), so Telegram is only the first surface.
+path. Reporting and publishers consume serializable output (widget JSON, §20),
+so Telegram is only the first surface.
 
 ## Invariants that are easy to violate
 
-- **Units are never implicit.** Canonical: toman, gram, USD/troy oz, UTC in
-  storage. Jalali and Persian formatting only at the reporting boundary.
+- **Units are never implicit** — canonical toman, gram, USD/troy oz, UTC in
+  storage; Jalali and Persian only at the reporting boundary.
 - **Constants once**: `TROY_OUNCE_GRAMS = 31.1034768`, `GOLD_18_PURITY = 0.75`,
   `GOLD_18_CONVERSION` derived. Never `41.46` inline.
-- **The two gap formulas are one relationship** — implied USD and theoretical
-  gold are algebraic inversions, not independent evidence in any scoring.
-- **Raw observations are immutable** and carry provenance (provider, symbol,
-  source ts, retrieval ts, unit, currency, quality flag). Store before deriving.
+- **Implied USD and theoretical gold are one relationship** algebraically
+  inverted — never two pieces of evidence in a score.
+- **Raw observations are immutable**, carry full provenance, stored before
+  anything is derived from them.
 - **Thresholds live in YAML, marked provisional** — never in source, never
   asserted as economic truth.
-- **Failure is visible.** Stale or missing mandatory data ⇒ no normal report;
+- **Failure is visible**: stale or missing mandatory data ⇒ no normal report,
   store the failure event instead.
 - **Signals are objects** carrying machine-readable `reason_codes`.
-- **Indicators, not advice.** "gold-implied USD" / `نرخ ضمنی دلار`, never
-  "intrinsic value"; no guarantees in report wording.
-- **Idempotency key**: `report_type + scheduled_slot + model_version`; check
+- **Indicators, not advice** — `نرخ ضمنی دلار` / "gold-implied USD", never
+  "intrinsic value", no guarantees in wording.
+- **Idempotency key** `report_type + scheduled_slot + model_version`: check
   delivery before sending, record the Telegram message id after.
 - **Model versioning**: analytical changes bump a version, persisted with the
   report.
 
-V1 is deliberately small — non-goals in §37. Verify a provider's live API
-against official docs before coding against it (§42).
+Verify a provider's live API against official docs before coding against it
+(§42).
 
 <!-- project-os:rules -->
 ## Working rules
