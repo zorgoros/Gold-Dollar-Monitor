@@ -34,3 +34,8 @@ Blocked: <what stopped you, or none>
 Did: pos init; filled STRUCTURE map from ARCHITECTURE.md s17; trimmed CLAUDE/AGENTS to budget; renamed spec to ARCHITECTURE.md; git init + first commit
 Next: Phase 0 bootstrap: pyproject, src/market_monitor skeleton, config/default.yaml, .env.example
 Blocked: none
+
+## 2026-08-12 10:35 · claude-solo
+Did: built V1 phases 0-9: domain, storage, TGJU adapter, analysis, Persian report, Telegram publisher, CLI, ops; 117 tests green; live dry-run verified
+Next: wire real Telegram credentials and do the section 9 controlled test publish
+Blocked: none

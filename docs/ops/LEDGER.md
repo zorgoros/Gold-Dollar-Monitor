@@ -39,3 +39,23 @@ the dedup gate and the ID sequence.
 - [ ] P1 — scope it
 
 ### Notes
+
+## GAP-002 · backfill command from spec section 30 is not implemented · OPEN
+**Family:** backfill,cli,history,tgju,import
+**Raised:** 2026-08-12
+**Summary:** backfill command from spec section 30 is not implemented
+
+### Phases
+- [ ] P1 — scope it
+
+### Notes
+
+## GAP-003 · rial instruments are single-sourced on TGJU with no independent fallback · OPEN
+**Family:** providers,tgju,fallback,redundancy,rial,resilience
+**Raised:** 2026-08-12
+**Summary:** rial instruments are single-sourced on TGJU with no independent fallback
+
+### Phases
+- [ ] P1 — scope it
+
+### Notes
