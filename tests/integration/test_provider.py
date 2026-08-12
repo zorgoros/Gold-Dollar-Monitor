@@ -7,7 +7,12 @@ import httpx
 import pytest
 
 from market_monitor.domain.enums import Instrument, Unit
-from market_monitor.domain.errors import ProviderParseError, ProviderUnavailable, RateLimitError
+from market_monitor.domain.errors import (
+    ProviderParseError,
+    ProviderUnavailable,
+    RateLimitError,
+    UnitNormalizationError,
+)
 from market_monitor.providers.gold_api import GoldApiProvider
 from market_monitor.providers.tgju import TgjuProvider
 
@@ -67,9 +72,17 @@ def test_layout_change_fails_loudly_instead_of_producing_a_number():
         TgjuProvider(client_returning({"unexpected": {}})).fetch_quotes(ALL)
 
 
-def test_missing_symbol_is_a_parse_error(tgju_payload):
+def test_one_absent_symbol_does_not_discard_the_others(tgju_payload):
+    """The instrument goes missing; validate_snapshot decides what that costs."""
     del tgju_payload["current"]["geram18"]
-    with pytest.raises(ProviderParseError):
+    quotes = TgjuProvider(client_returning(tgju_payload)).fetch_quotes(ALL)
+    assert Instrument.GOLD_18K not in quotes
+    assert Instrument.USD_IRR_FREE in quotes and Instrument.XAU_USD in quotes
+
+
+def test_unparseable_price_is_a_parse_error_not_a_number(tgju_payload):
+    tgju_payload["current"]["geram18"]["p"] = "n/a"
+    with pytest.raises(UnitNormalizationError):
         TgjuProvider(client_returning(tgju_payload)).fetch_quotes(ALL)
 
 

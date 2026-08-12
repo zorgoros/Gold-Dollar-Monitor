@@ -11,6 +11,8 @@ gap_neutral_band_pct = 1.0
 gap_slight_band_pct = 3.0
 gap_stretched_pct = 7.0
 gap_expansion_tolerance_pct = 0.25
+# How far from the exact lookback instant a historical observation may sit.
+trend_tolerance_hours = 12
 
 [freshness]
 # A quote older than this many minutes is stale.
@@ -35,6 +37,7 @@ primary = "tgju"
 primary = "tgju"
 [providers.xau_usd]
 primary = "tgju"
+fallback = "gold-api"
 [providers.emami_coin]
 primary = "tgju"
 

@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import secrets
 from collections.abc import Iterable
 from datetime import datetime
@@ -27,6 +28,8 @@ from ..domain.models import Quote
 from ..normalization.units import parse_number, to_canonical
 from ..timeutil import TEHRAN, now_utc
 from .base import DEFAULT_TIMEOUT, http_get
+
+log = logging.getLogger(__name__)
 
 BASE_URL = "https://call1.tgju.org/ajax.json"
 FALLBACK_URL = "https://call3.tgju.org/ajax.json"
@@ -80,7 +83,13 @@ class TgjuProvider:
             symbol, source_unit = mapping
             entry = current.get(symbol)
             if not isinstance(entry, dict) or "p" not in entry:
-                raise ProviderParseError(f"TGJU has no price for {symbol!r} — layout changed")
+                # One absent symbol must not discard the others. The instrument
+                # is simply missing from the result; validate_snapshot refuses
+                # to publish if it was a mandatory one.
+                log.warning(
+                    "symbol_missing", extra={"provider": self.name, "provider_symbol": symbol}
+                )
+                continue
             raw = str(entry["p"])
             value, unit = to_canonical(instrument, parse_number(raw), source_unit)
             quotes[instrument] = Quote(
