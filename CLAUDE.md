@@ -35,22 +35,19 @@ so Telegram is only the first surface.
   `GOLD_18_CONVERSION` derived. Never `41.46` inline.
 - **Implied USD and theoretical gold are one relationship** algebraically
   inverted — never two pieces of evidence in a score.
-- **Raw observations are immutable**, carry full provenance, stored before
-  anything is derived from them.
-- **Thresholds live in YAML, marked provisional** — never in source, never
-  asserted as economic truth.
+- **Raw observations are immutable**, carry full provenance, and are stored
+  before anything is derived from them.
+- **Thresholds live in YAML, marked provisional** — not in source, not asserted
+  as economic truth.
 - **Failure is visible**: stale or missing mandatory data ⇒ no normal report,
   store the failure event instead.
 - **Signals are objects** carrying machine-readable `reason_codes`.
 - **Indicators, not advice** — `نرخ ضمنی دلار` / "gold-implied USD", never
   "intrinsic value", no guarantees in wording.
-- **Idempotency key** `report_type + scheduled_slot + model_version`: check
-  delivery before sending, record the Telegram message id after.
-- **Model versioning**: analytical changes bump a version, persisted with the
-  report.
+- **Idempotency key** `report_type + scheduled_slot + model_version`; record the
+  Telegram message id after. Analytical changes bump a persisted model version.
 
-Verify a provider's live API against official docs before coding against it
-(§42).
+Verify a provider's live API against official docs before coding against it.
 
 <!-- project-os:rules -->
 ## Working rules
