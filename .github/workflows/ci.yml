@@ -20,4 +20,6 @@ jobs:
       # Tests run against captured fixtures — no network, no secrets needed,
       # so this job stays safe to run on untrusted pull requests.
       - run: python -m pytest
-      - run: pip install pip-audit && pip-audit --strict
+      # Audit the pinned dependencies, not the environment — the environment
+      # contains this package itself, which is not on PyPI and cannot be audited.
+      - run: pip install pip-audit && pip-audit --strict --requirement requirements.lock
