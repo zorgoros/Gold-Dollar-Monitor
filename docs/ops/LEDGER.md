@@ -30,7 +30,7 @@ the dedup gate and the ID sequence.
 
 ## Entries
 
-## GAP-001 · EXTENSIONS.md and docs/ops/LEDGER.md are two parking lots for the same thing · OPEN
+## GAP-001 · EXTENSIONS.md and docs/ops/LEDGER.md are two parking lots for the same thing · DONE
 **Family:** extensions,ledger,docs,process,duplication
 **Raised:** 2026-08-12
 **Summary:** EXTENSIONS.md and docs/ops/LEDGER.md are two parking lots for the same thing

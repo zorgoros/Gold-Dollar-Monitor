@@ -1,0 +1,48 @@
+# Non-secret behaviour. Secrets live in .env (see .env.example).
+# TOML rather than YAML so the reader is stdlib tomllib and no dependency is added.
+
+model_version = "1.0"
+timezone = "Asia/Tehran"
+
+[analysis]
+# PROVISIONAL. Not economic truth — replace with values derived from historical
+# distributions once enough history exists (ARCHITECTURE.md §7).
+gap_neutral_band_pct = 1.0
+gap_slight_band_pct = 3.0
+gap_stretched_pct = 7.0
+gap_expansion_tolerance_pct = 0.25
+
+[freshness]
+# A quote older than this many minutes is stale.
+usd_irr_free = 20
+gold_18k = 20
+xau_usd = 30
+emami_coin = 20
+# Widest spread allowed between the oldest and newest quote in one snapshot.
+snapshot_window_minutes = 15
+
+[validation]
+# Reject a quote that moved more than this vs the last stored one (parser guard).
+max_jump_pct = 25.0
+
+[instruments]
+mandatory = ["usd_irr_free", "gold_18k", "xau_usd"]
+optional = ["emami_coin"]
+
+[providers.usd_irr_free]
+primary = "tgju"
+[providers.gold_18k]
+primary = "tgju"
+[providers.xau_usd]
+primary = "tgju"
+[providers.emami_coin]
+primary = "tgju"
+
+[schedule]
+# Mode A (cron/systemd) is the V1 default; these are the slots cron should hit.
+reports = ["09:00", "13:00", "17:00", "21:00"]
+
+[telegram]
+parse_mode = "HTML"
+disable_web_page_preview = true
+max_retries = 3
