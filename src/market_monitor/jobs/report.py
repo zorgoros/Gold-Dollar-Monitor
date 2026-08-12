@@ -70,7 +70,7 @@ def build_report(
     report = Report(
         report_type=report_type,
         report_key=report_key(report_type, slot, analysis.model_version),
-        content=render(analysis),
+        content=render(analysis, str(settings.section("reporting").get("channel_note", ""))),
         channel="telegram",
         generated_at=now_utc(),
         model_version=analysis.model_version,

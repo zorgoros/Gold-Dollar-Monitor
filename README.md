@@ -1,4 +1,8 @@
-# Iran Market Monitor
+# Gold-Dollar-Monitor
+
+[![CI](https://github.com/zorgoros/Gold-Dollar-Monitor/actions/workflows/ci.yml/badge.svg)](https://github.com/zorgoros/Gold-Dollar-Monitor/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/downloads/)
 
 Fetches Iranian and global market prices on a schedule, stores every raw
 observation, computes deterministic indicators, and publishes a compact Persian
@@ -9,7 +13,7 @@ analytical indicator. Design: [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Status
 
-V1 complete. 117 tests passing, `ruff` and `mypy --strict` clean. The full
+V1 complete. 119 tests passing, `ruff` and `mypy --strict` clean. The full
 pipeline is verified against live data in dry-run. Real Telegram delivery is
 tested against mocks only — it needs your bot token to be confirmed.
 
@@ -140,3 +144,26 @@ report per `report_type|slot|model_version`, enforced by a database index.
 Thresholds in `config/default.toml` are **provisional placeholders**, not
 calibrated values. Signal confidence is capped at 0.6 in code for that reason.
 Calibration needs the backtesting work in [EXTENSIONS.md](EXTENSIONS.md) (F, G).
+
+---
+
+## Licence, attribution, and legal
+
+MIT — see [LICENSE](LICENSE). Not affiliated with TGJU or any data provider.
+
+**This is not financial advice.** The software computes arithmetic
+relationships between published prices; it does not forecast or recommend.
+Every report carries a disclaimer. Read [DISCLAIMER.md](DISCLAIMER.md) before
+publishing its output to an audience — market commentary is regulated in many
+places.
+
+**Attribution.** Reports carry `Gold-Dollar-Monitor · github.com/zorgoros/Gold-Dollar-Monitor`.
+Set `[reporting].channel_note` to add your own line above it. Please keep the
+attribution if you run a fork — see [NOTICE](NOTICE).
+
+**Data.** Fetched at runtime from public endpoints, never redistributed;
+fixtures are trimmed samples for offline tests. Four requests a day at the
+default schedule.
+
+**Security.** Token handling, trust boundaries, and how to report a
+vulnerability: [SECURITY.md](SECURITY.md).

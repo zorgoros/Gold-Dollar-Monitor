@@ -1,0 +1,29 @@
+Gold-Dollar-Monitor
+Copyright (c) 2026 zorgoros
+https://github.com/zorgoros/Gold-Dollar-Monitor
+
+Licensed under the MIT License (see LICENSE).
+
+ATTRIBUTION IN PUBLISHED OUTPUT
+-------------------------------
+Every report this software publishes carries an attribution line:
+
+    Gold-Dollar-Monitor · github.com/zorgoros/Gold-Dollar-Monitor
+
+It is defined in `src/market_monitor/domain/constants.py` (ATTRIBUTION) and a
+test asserts its presence, so removing it takes a deliberate code change that
+breaks the test suite.
+
+If you run this software, or a fork of it, and publish its reports, please keep
+that line. Operators who want their own channel named in the footer should set
+`[reporting].channel_note` in `config/default.toml` — it is added above the
+attribution, not instead of it.
+
+This is a request, not a licence condition. The MIT licence permits removal,
+and no open-source licence can prevent it. It is asked in good faith.
+
+THIRD-PARTY DATA
+----------------
+Market data is retrieved at runtime from third-party services (TGJU,
+gold-api.com). That data is not covered by this licence and is not
+redistributed by this project. See DISCLAIMER.md.

@@ -45,6 +45,11 @@ primary = "tgju"
 # Mode A (cron/systemd) is the V1 default; these are the slots cron should hit.
 reports = ["09:00", "13:00", "17:00", "21:00"]
 
+[reporting]
+# Optional operator line above the attribution (channel handle, site, etc).
+# It adds to the footer; it does not replace the attribution. See NOTICE.
+channel_note = ""
+
 [telegram]
 parse_mode = "HTML"
 disable_web_page_preview = true

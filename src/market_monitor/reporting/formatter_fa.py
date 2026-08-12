@@ -9,6 +9,7 @@ from html import escape
 
 from ..analysis import engine
 from ..analysis.engine import Analysis
+from ..domain.constants import ATTRIBUTION
 from ..domain.enums import Classification, Instrument
 from ..timeutil import to_tehran
 from .jalali import format_date_fa
@@ -59,8 +60,12 @@ def _arrow(trends: dict[str, float | None], tolerance: float = 0.05) -> str:
     return _ARROWS["STABLE"]
 
 
-def render(analysis: Analysis) -> str:
-    """Render the scheduled summary (ARCHITECTURE.md §15)."""
+def render(analysis: Analysis, channel_note: str = "") -> str:
+    """Render the scheduled summary (ARCHITECTURE.md §15).
+
+    `channel_note` adds an operator line above the attribution; it cannot
+    replace the attribution.
+    """
     local = to_tehran(analysis.as_of)
     metrics = analysis.metrics
     signals = {s.instrument: s for s in analysis.signals}
@@ -125,4 +130,7 @@ def render(analysis: Analysis) -> str:
         "",
         DISCLAIMER,
     ]
+    if channel_note:
+        lines.append(escape(channel_note))
+    lines.append(ATTRIBUTION)
     return "\n".join(lines)

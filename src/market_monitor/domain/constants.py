@@ -13,6 +13,13 @@ EMAMI_COIN_GRAMS = 8.133
 EMAMI_COIN_PURITY = 0.900
 EMAMI_COIN_PURE_GRAMS = EMAMI_COIN_GRAMS * EMAMI_COIN_PURITY
 
+# Attribution carried by every published report. Deliberately in source rather
+# than config: config is for values an operator is meant to change, and this is
+# not one of them. See NOTICE.
+PROJECT_NAME = "Gold-Dollar-Monitor"
+PROJECT_URL = "github.com/zorgoros/Gold-Dollar-Monitor"
+ATTRIBUTION = f"{PROJECT_NAME} · {PROJECT_URL}"
+
 FORMULA_VERSION = "1.0"
 SIGNAL_MODEL_VERSION = "1.0"
 REPORT_TEMPLATE_VERSION = "1.0"

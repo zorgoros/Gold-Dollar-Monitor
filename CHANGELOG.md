@@ -14,6 +14,8 @@ First working version. Formula version 1.0, signal model 1.0, report template 1.
   0.6 while thresholds remain provisional.
 - Persian report published to Telegram, once per `type|slot|model_version`.
 - CLI: `fetch`, `report`, `run-once` (both with `--dry-run`), `health`, `db-info`.
+- Attribution line on every report; `[reporting].channel_note` adds to it.
+- MIT licence, DISCLAIMER.md, SECURITY.md, NOTICE.
 
 Known gaps: thresholds are placeholders pending backtesting (EXTENSIONS F, G);
 the three rial instruments are single-sourced; no `backfill` command.

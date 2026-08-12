@@ -3,6 +3,7 @@ from datetime import timedelta
 
 from market_monitor.analysis import engine
 from market_monitor.analysis.engine import analyze
+from market_monitor.domain.constants import ATTRIBUTION
 from market_monitor.domain.models import Metric
 from market_monitor.reporting.formatter_fa import DISCLAIMER, render, signed_pct, trend_line
 from market_monitor.reporting.models import widget_payload
@@ -31,6 +32,17 @@ def test_report_prints_market_and_implied_side_by_side(repo, snapshot):
 
 def test_report_always_carries_the_disclaimer(repo, snapshot):
     assert DISCLAIMER in render(analyze(snapshot(), repo, CONFIG))
+
+
+def test_report_always_carries_the_attribution(repo, snapshot):
+    """See NOTICE. Removing this is a deliberate act, not an accident."""
+    assert ATTRIBUTION in render(analyze(snapshot(), repo, CONFIG))
+
+
+def test_channel_note_adds_to_the_attribution_it_cannot_replace_it(repo, snapshot):
+    text = render(analyze(snapshot(), repo, CONFIG), channel_note="@my_channel")
+    assert "@my_channel" in text
+    assert ATTRIBUTION in text
 
 
 def test_missing_history_prints_a_dash_not_a_zero(repo, snapshot):
