@@ -1,7 +1,11 @@
 # Non-secret behaviour. Secrets live in .env (see .env.example).
 # TOML rather than YAML so the reader is stdlib tomllib and no dependency is added.
+#
+# This file is the whole administrative surface (§35). There is no second
+# settings system: the Telegram side is publish-only, so anything an operator is
+# meant to change is here and nowhere else.
 
-model_version = "1.0"
+model_version = "1.1"
 timezone = "Asia/Tehran"
 
 [analysis]
@@ -13,6 +17,20 @@ gap_stretched_pct = 7.0
 gap_expansion_tolerance_pct = 0.25
 # How far from the exact lookback instant a historical observation may sit.
 trend_tolerance_hours = 12
+# When Tehran is closed, the world ounce used for the analysis is read from
+# history at the Iranian session's instant rather than taken live.
+xau_alignment_tolerance_hours = 12
+# TGJU zeroes the clock on a closed session, so `2026-08-11 00:00:00` means "the
+# session of 11 August", not midnight. This is the hour that marker is moved to
+# before an ounce is aligned to it. One hour, not a trading calendar: it knows
+# nothing of holidays or an early close, and the tolerance above absorbs those.
+tehran_session_close = "17:00"
+
+[peg]
+# 1 USD = 3.6725 AED. Central Bank of the UAE conventional peg, in force since
+# November 1997. Provenance and interpretation limits: docs/FORMULAS.md.
+# Changing this changes an economic assumption — bump model_version with it.
+usd_aed = 3.6725
 
 [freshness]
 # A quote older than this many minutes is stale.
@@ -20,16 +38,31 @@ usd_irr_free = 20
 gold_18k = 20
 xau_usd = 30
 emami_coin = 20
+aed_irt = 20
+eur_irt = 20
+try_irt = 20
+jpy_irt = 20
 # Widest spread allowed between the oldest and newest quote in one snapshot.
 snapshot_window_minutes = 15
+# Widest spread allowed between the Tehran-session inputs feeding one analysis.
+# Wider than the snapshot window because a closed session's quotes all carry the
+# same midnight marker but may be recorded minutes apart.
+session_window_minutes = 20
 
 [validation]
 # Reject a quote that moved more than this vs the last stored one (parser guard).
 max_jump_pct = 25.0
 
+# The three independent enablement sets (§27). Collection is deliberately the
+# widest: history is accumulated for instruments nothing analyses yet, because
+# the one thing that cannot be back-filled is a price nobody stored.
 [instruments]
 mandatory = ["usd_irr_free", "gold_18k", "xau_usd"]
-optional = ["emami_coin"]
+optional = ["emami_coin", "aed_irt", "eur_irt", "try_irt", "jpy_irt"]
+# Staleness or absence here blocks Ayar Analysis.
+analysis_required = ["usd_irr_free", "gold_18k", "xau_usd"]
+# Contributes a section when present; drops that section when not. Never blocks.
+analysis_optional = ["aed_irt", "emami_coin"]
 
 [providers.usd_irr_free]
 primary = "tgju"
@@ -40,15 +73,43 @@ primary = "tgju"
 fallback = "gold-api"
 [providers.emami_coin]
 primary = "tgju"
+[providers.aed_irt]
+primary = "tgju"
+[providers.eur_irt]
+primary = "tgju"
+[providers.try_irt]
+primary = "tgju"
+[providers.jpy_irt]
+primary = "tgju"
+
+# What the public Market Snapshot board shows, in display order. Removing an
+# entry hides it from Telegram without stopping collection or analysis.
+[display]
+fx = ["usd_irr_free", "eur_irt", "aed_irt", "try_irt", "jpy_irt"]
+metals = ["gold_18k", "xau_usd", "emami_coin"]
+show_change_since_previous = true
 
 [schedule]
-# Mode A (cron/systemd) is the V1 default; these are the slots cron should hit.
-reports = ["09:00", "13:00", "17:00", "21:00"]
+# Tehran local time. Defaults are 4 snapshots and 2 analyses per day (§36); no
+# count or time is assumed anywhere in code, both lists are read at publish
+# time. Keep cron in agreement — see docs/OPERATIONS.md.
+snapshot = ["09:00", "13:00", "17:00", "21:00"]
+analysis = ["13:00", "21:00"]
+# A run this far from a configured slot gets its own adhoc key instead.
+slot_tolerance_minutes = 90
 
 [reporting]
 # Optional operator line above the attribution (channel handle, site, etc).
 # It adds to the footer; it does not replace the attribution. See NOTICE.
 channel_note = ""
+
+[reporting.footer]
+# Identity carried by every public report (§24). Leave a handle empty and its
+# line is omitted — no invented usernames. The repository attribution line is
+# not configurable and is appended below these; it lives in domain/constants.py.
+brand_name = "عیار مارکت | Ayar Market"
+bot_username = ""
+channel_username = ""
 
 [telegram]
 parse_mode = "HTML"

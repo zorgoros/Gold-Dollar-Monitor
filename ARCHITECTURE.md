@@ -3,7 +3,9 @@
 ## Backbone Architecture & Agent Builder Specification
 
 **Document role:** Canonical architecture/backbone for implementation\
-**Status:** V1 specification with explicit extension points\
+**Status:** V1 specification with explicit extension points; **v1.1 deltas in
+§0 below**\
+**Brand:** عیار مارکت · Ayar Market\
 **Primary output:** Automated Persian market reports to a Telegram
 channel\
 **Design principle:** Simple V1, deterministic calculations, auditable
@@ -11,6 +13,66 @@ data, modular architecture, future widget/web/API expansion\
 **Default timezone:** `Asia/Tehran`\
 **Primary language of reports:** Persian\
 **Code/documentation language:** English recommended for maintainability
+
+------------------------------------------------------------------------
+
+# 0. v1.1 deltas
+
+Shipped 2026-08-12. Everything below this section describes V1 and remains
+accurate except where noted here. Detail lives in the document that owns each
+subject — this section records the *decisions*, not the specifications.
+
+**Two public report types replace one.** `market_snapshot` is a price board;
+`ayar_analysis` is the cross-market read. Schedules default to 4/day and 2/day
+and are read from `[schedule]` at publish time. `scheduled_summary` is retained
+as a report type because delivered rows reference it. Cadence and slot
+behaviour: `docs/OPERATIONS.md`.
+
+**A second, independent implied USD.** The dirham's USD peg gives a USD/toman
+rate that does not come from a metal content, so unlike implied-USD versus
+theoretical-gold (§4.4) it is *not* an inversion of the gold relationship. The
+two may therefore be compared — §9 of the v1.1 brief — but are never blended.
+No composite exists and none may be built without the research in
+`docs/BACKTESTING.md`. Formulas and the peg's provenance: `docs/FORMULAS.md`.
+
+**Data quality became a publication gate (supersedes the V1 behaviour in §7 and
+§13).** V1 published a normal report and appended a staleness warning. That is
+no longer sufficient for the analysis:
+
+* The Tehran-session inputs must be mutually coherent.
+* A closed Tehran session is **never** paired with a live world ounce. The
+  ounce is aligned from stored history at the session's own instant, after the
+  provider's zeroed session marker is moved to the real close hour.
+* With no aligned ounce, the analysis is withheld and a short public status
+  message is published instead.
+* The price board keeps the tolerant V1 behaviour — it publishes and labels its
+  basis, because quoting a last close is honest when it says so.
+
+The concrete failure this prevents: a live ounce times the previous Iranian
+close made the Emami coin appear to trade below its own metal content.
+
+**Raw observations remain immutable (§2.2 unchanged, and now load-bearing).**
+Alignment selects *which* stored observation an analysis reads. It never
+rewrites a quote's value, source timestamp, or quality flag. The stored
+`metrics` series is always computed from inputs as collected — the alignment
+lookup reads that series, so writing aligned values into it would create a
+feedback loop.
+
+**Three enablement sets, not one.** Collection, display, and analysis are
+configured independently (`[instruments]`, `[display]`). Collection is the
+widest: instruments are stored that nothing yet reads, because a price nobody
+recorded cannot be back-filled. This realises the §3 note that the data model
+must allow arbitrary future instruments without schema redesign — v1.1 added
+four instruments with four `INSERT`s and no DDL.
+
+**Configuration is the only administrative surface.** There is no interactive
+bot; the Telegram integration is publish-only. Everything an operator changes
+is in `config/default.toml`, inspectable via `market-monitor config`. A bot
+admin UX is parked in `EXTENSIONS.md`, not built.
+
+**Wording.** `ارزش نظری` and `ارزش طلای سکه`, never `ارزش ذاتی`. Distances are
+stated, not graded — no "expensive" or "cheap" while the bands remain
+provisional. Public reports carry no engineering diagnostics.
 
 ------------------------------------------------------------------------
 
@@ -111,9 +173,21 @@ Required inputs:
   `xau_usd`        International gold spot/ounce     USD/troy oz
   `emami_coin`     Emami coin market price           toman/coin
 
-Recommended optional V1/V1.1 inputs: - 24K gold; - melted gold /
-آبشده; - USDT/IRT; - AED/IRT; - other coin types; - provider-reported
-coin bubble/premium; - market open/closed state.
+v1.1 additions:
+
+  Field       Meaning                     Canonical unit   Role
+  ----------- --------------------------- ---------------- --------------------------
+  `aed_irt`   UAE dirham                  toman/AED        display + analysis
+  `eur_irt`   Euro                        toman/EUR        display + history
+  `try_irt`   Turkish lira                toman/TRY        display + history
+  `jpy_irt`   Japanese yen                toman/**JPY**    display + history
+
+The yen is stored per **one** yen and published per hundred; the provider quotes
+it per hundred, which is a 100x trap documented in `docs/PROVIDERS.md`.
+
+Still-optional future inputs: - 24K gold; - melted gold / آبشده; - USDT/IRT
+(source needed — TGJU's is dead, see `EXTENSIONS.md` O); - other coin types;
+- provider-reported coin bubble/premium; - market open/closed state.
 
 The data model must allow arbitrary future instruments without schema
 redesign.
@@ -747,8 +821,7 @@ iran-market-monitor/
 ├── Makefile                     # optional convenience commands
 │
 ├── config/
-│   ├── default.yaml
-│   └── logging.yaml
+│   └── default.toml            # v1.1: TOML, read by stdlib tomllib
 │
 ├── src/
 │   └── market_monitor/

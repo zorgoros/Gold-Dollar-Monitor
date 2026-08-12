@@ -11,10 +11,16 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from ..domain.constants import SIGNAL_MODEL_VERSION
-from ..domain.enums import Classification, Instrument, ReasonCode
+from ..domain.enums import AnalysisBasis, Classification, Instrument, ReasonCode
 from ..domain.models import Signal
 
 MAX_CONFIDENCE = 0.6
+
+# Two references pointing the same way is worth saying; it is still not proof.
+# The gold and AED gaps are independent measurements, unlike implied USD and
+# theoretical gold, so agreement between them is information (§9) — but it does
+# not raise confidence past the cap, because neither is calibrated yet.
+AGREEMENT_BAND_PCT = 1.0
 
 
 @dataclass(frozen=True)
@@ -69,11 +75,31 @@ def usd_signal(
     bands: Bands,
     generated_at: datetime,
     degraded: bool = False,
+    aed_gap: float | None = None,
+    basis: AnalysisBasis = AnalysisBasis.LIVE,
 ) -> Signal:
-    """USD against the rate implied by the domestic gold market (§5.4 cases A–C)."""
+    """USD against the rates implied by the gold and dirham markets (§5.4, §9).
+
+    One signal, not two. The dirham adds reason codes and metrics to the USD
+    verdict rather than a second Signal object, because two Signals for one
+    instrument would read as two independent judgements of the same fact.
+    """
     codes: list[ReasonCode] = [
         ReasonCode.USD_ABOVE_GOLD_IMPLIED if gap > 0 else ReasonCode.USD_BELOW_GOLD_IMPLIED
     ]
+    if aed_gap is None:
+        codes.append(ReasonCode.AED_REFERENCE_UNAVAILABLE)
+    else:
+        codes.append(
+            ReasonCode.USD_ABOVE_AED_IMPLIED if aed_gap > 0 else ReasonCode.USD_BELOW_AED_IMPLIED
+        )
+        codes.append(
+            ReasonCode.GOLD_AND_AED_AGREE
+            if abs(gap - aed_gap) <= AGREEMENT_BAND_PCT
+            else ReasonCode.GOLD_AND_AED_DISAGREE
+        )
+    if basis is AnalysisBasis.LAST_CLOSE:
+        codes.append(ReasonCode.BASIS_LAST_CLOSE)
     if implied_direction == "RISING":
         codes.append(ReasonCode.IMPLIED_USD_RISING)
     elif implied_direction == "FALLING":
@@ -91,19 +117,11 @@ def usd_signal(
     if degraded:
         codes.append(ReasonCode.STALE_SOURCE)
 
-    above = gap > 0
-    if above and implied_direction == "FALLING" and momentum == "EXPANDING":
-        summary = "دلار بالاتر از نرخ ضمنی طلاست، نرخ ضمنی نزولی و فاصله در حال افزایش است."
-    elif above and implied_direction == "RISING" and momentum == "CONTRACTING":
-        summary = "دلار بالاتر از نرخ ضمنی است، اما نرخ ضمنی صعودی و فاصله در حال کاهش است."
-    elif not above and implied_direction == "RISING":
-        summary = "دلار پایین‌تر از نرخ ضمنی طلاست و نرخ ضمنی صعودی است."
-    elif abs(gap) <= bands.neutral:
-        summary = "دلار و نرخ ضمنی طلا تقریباً هم‌تراز هستند."
-    elif above:
-        summary = "دلار بالاتر از نرخ ضمنی طلاست."
-    else:
-        summary = "دلار پایین‌تر از نرخ ضمنی طلاست."
+    summary = _usd_summary(gap, aed_gap, implied_direction, momentum, bands)
+
+    used = {"usd_gap_pct": round(gap, 4)}
+    if aed_gap is not None:
+        used["aed_usd_gap_pct"] = round(aed_gap, 4)
 
     return Signal(
         instrument=Instrument.USD_IRR_FREE,
@@ -112,10 +130,46 @@ def usd_signal(
         confidence=_confidence(implied_direction != "UNKNOWN", degraded),
         summary_fa=summary,
         reason_codes=codes,
-        metrics_used={"usd_gap_pct": round(gap, 4)},
+        metrics_used=used,
         generated_at=generated_at,
         model_version=SIGNAL_MODEL_VERSION,
     )
+
+
+def _usd_summary(
+    gap: float, aed_gap: float | None, implied_direction: str, momentum: str, bands: Bands
+) -> str:
+    """One or two sentences, stated as distances rather than verdicts (§21, §40).
+
+    Never "the dollar is expensive" — the model measures how far apart two
+    prices sit, which is not the same claim.
+    """
+    if aed_gap is not None:
+        if abs(gap - aed_gap) <= AGREEMENT_BAND_PCT:
+            return (
+                "بازار طلا و بازار درهم فاصله مشابهی با نرخ دلار نشان می‌دهند "
+                f"({gap:+.2f}٪ و {aed_gap:+.2f}٪)."
+            )
+        if abs(aed_gap) <= bands.neutral:
+            return (
+                "بازار درهم نرخ دلار را تقریباً تأیید می‌کند، "
+                f"اما فاصله دلار با نرخ ضمنی طلا {gap:+.2f}٪ است."
+            )
+        return (
+            f"فاصله دلار با نرخ ضمنی طلا {gap:+.2f}٪ و با نرخ ضمنی درهم {aed_gap:+.2f}٪ است؛ "
+            "دو بازار تصویر یکسانی نمی‌دهند."
+        )
+
+    above = gap > 0
+    if above and implied_direction == "FALLING" and momentum == "EXPANDING":
+        return "دلار بالاتر از نرخ ضمنی طلاست، نرخ ضمنی نزولی و فاصله در حال افزایش است."
+    if above and implied_direction == "RISING" and momentum == "CONTRACTING":
+        return "دلار بالاتر از نرخ ضمنی است، اما نرخ ضمنی صعودی و فاصله در حال کاهش است."
+    if not above and implied_direction == "RISING":
+        return "دلار پایین‌تر از نرخ ضمنی طلاست و نرخ ضمنی صعودی است."
+    if abs(gap) <= bands.neutral:
+        return "دلار و نرخ ضمنی طلا تقریباً هم‌تراز هستند."
+    return f"فاصله دلار با نرخ ضمنی طلا {gap:+.2f}٪ است."
 
 
 def gold_signal(
@@ -168,11 +222,15 @@ def gold_signal(
 def coin_signal(
     premium_pct: float, bands: Bands, generated_at: datetime, degraded: bool = False
 ) -> Signal:
-    """Coin against its melt value. The premium is normally positive."""
+    """Coin against the value of the gold it contains. Normally a positive premium.
+
+    "ارزش طلای سکه", never "ارزش ذاتی" (§22) — this is metal content, which is a
+    narrower and more defensible claim than intrinsic worth.
+    """
     summary = (
-        f"حباب سکه نسبت به ارزش ذاتی حدود {premium_pct:.1f} درصد است."
+        f"حباب سکه نسبت به ارزش طلای آن حدود {premium_pct:.1f} درصد است."
         if premium_pct >= 0
-        else f"سکه حدود {abs(premium_pct):.1f} درصد زیر ارزش ذاتی معامله می‌شود."
+        else f"سکه حدود {abs(premium_pct):.1f} درصد زیر ارزش طلای خود معامله می‌شود."
     )
     return Signal(
         instrument=Instrument.EMAMI_COIN,

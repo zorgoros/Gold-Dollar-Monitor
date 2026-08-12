@@ -46,9 +46,11 @@ def collect(
 ) -> tuple[Snapshot, SnapshotVerdict, int]:
     """Build one snapshot. Returns the snapshot, its verdict, and its row id."""
     chain = providers if providers is not None else build_chain(settings)
-    instruments_cfg = settings.section("instruments")
-    mandatory = [Instrument(s) for s in instruments_cfg.get("mandatory", [])]
-    optional = [Instrument(s) for s in instruments_cfg.get("optional", [])]
+    mandatory = settings.instrument_list("instruments", "mandatory")
+    optional = settings.instrument_list("instruments", "optional")
+    # Collection is the widest of the three sets on purpose: an instrument that
+    # is neither displayed nor analysed is still stored, because the one thing
+    # that cannot be back-filled later is a price nobody wrote down (§27).
     wanted = mandatory + optional
 
     now = now_utc()

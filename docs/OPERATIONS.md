@@ -12,7 +12,31 @@ chmod 600 .env
 ```
 
 Migrations run automatically on every command; the database is created on first
-use at `data/market.db`.
+use at `data/market.db`. `DATABASE_URL` takes `sqlite:///relative/to/repo` or
+`sqlite:////absolute/path` — the fourth slash is what makes it absolute.
+
+## Configuration
+
+Everything an operator is meant to change lives in `config/default.toml`; there
+is no second settings system and no runtime admin surface — the Telegram
+integration is publish-only. Inspect the effective values with:
+
+```bash
+market-monitor config
+```
+
+| Section | Controls |
+|---|---|
+| `[schedule]` | how many of each report type per day, and when |
+| `[display]` | which instruments appear on the public board, in order |
+| `[instruments]` | what is collected, what analysis requires, what it merely uses |
+| `[reporting.footer]` | brand name and handles (§24) |
+| `[peg]` | the USD/AED peg |
+| `[freshness]`, `[analysis]` | the gate's thresholds and windows |
+
+The three instrument sets are independent on purpose: collection is the widest,
+so history accumulates for instruments nothing displays or analyses yet. A
+price nobody stored is the one thing that cannot be back-filled.
 
 ## Deploy (Docker)
 
@@ -24,9 +48,24 @@ docker compose -f deploy/docker-compose.yml up -d
 The compose file mounts `./data` so the SQLite file survives a container
 rebuild, and sets `TZ=Asia/Tehran`.
 
+## Two report types
+
+The channel carries two surfaces and nothing else (§37):
+
+| Report | Default schedule | Tolerance to stale data |
+|---|---|---|
+| Market Snapshot (`📊 عیار مارکت`) | 09:00, 13:00, 17:00, 21:00 | tolerant — publishes and labels the basis |
+| Ayar Analysis (`⚖️ تحلیل عیار`) | 13:00, 21:00 | strict — withheld rather than published wrong |
+
+Both lists live in `config/default.toml` under `[schedule].snapshot` and
+`[schedule].analysis`. Counts and times are read at publish time; changing the
+cadence is a config edit and nothing else. `market-monitor config` prints what
+is actually in force.
+
 ## Scheduling
 
-Cron is the V1 default (`deploy/cron/market-monitor.cron`):
+Cron is the default (`deploy/cron/market-monitor.cron`). One entry covers both
+report types — the run publishes whichever slots the current time matches:
 
 ```cron
 CRON_TZ=Asia/Tehran
@@ -39,17 +78,63 @@ systemd equivalent in `deploy/systemd/` — enable with:
 sudo systemctl enable --now market-monitor.timer
 ```
 
-Slot times also live in `config/default.toml` under `[schedule].reports`; the
-report key is derived from them, so **keep cron and the config in agreement**.
-A run more than 90 minutes from any configured slot gets its own `adhoc` key
-and will not consume the scheduled slot's single delivery.
+Cron must fire at the **union** of the two slot lists, so **keep cron and the
+config in agreement**. A run more than `[schedule].slot_tolerance_minutes` from
+any configured slot gets its own `adhoc` key; off-slot runs publish nothing
+unless `--type` forces a report, which is what keeps manual runs from adding
+channel noise.
+
+## The publication gate
+
+Data quality is decided *before* anything is rendered, not appended as a
+warning afterwards. The two surfaces gate differently on purpose.
+
+**Market Snapshot** publishes unless the data is missing, unusable, or a unit
+regression. Stale prices are shown with `🕐 بر مبنای آخرین پایان معاملات`
+rather than suppressed — a price board quoting the last close is honest as long
+as it says so. Instruments that were not collected are omitted entirely; no row
+ever carries a placeholder dash.
+
+**Ayar Analysis** additionally requires temporal coherence:
+
+1. The Tehran-session inputs must agree with each other within
+   `[freshness].session_window_minutes`. A dollar from today and a gold price
+   from last week is not a market state.
+2. If every required input is inside its freshness limit, the live world ounce
+   is used — basis `LIVE`.
+3. Otherwise Tehran is closed. The ounce is **not** taken live. TGJU's session
+   marker is moved to `[analysis].tehran_session_close` and the nearest stored
+   `xau_usd` observation within `[analysis].xau_alignment_tolerance_hours` is
+   used instead — basis `LAST_CLOSE`, labelled as such in the report.
+4. If no aligned ounce exists, the analysis is **withheld** and the channel
+   gets `⚠️ تحلیل این نوبت منتشر نشد…` — no numbers.
+
+Step 4 fires on a fresh install until roughly a day of history exists, which is
+expected. In steady state the 21:00 and 09:00 runs bracket a 17:00 close well
+inside the tolerance, so a closed-session analysis finds its ounce.
+
+Why this matters concretely: pairing a live ounce with the previous Iranian
+close made the Emami coin read as trading 2.8% *below* its own metal content on
+2026-08-12 — an impossible number produced entirely by the timing mismatch.
+
+Public reports never carry instrument names, minute counts, or subsystem names.
+Those go to `job_runs.metadata_json` and the structured log as `report_gated`
+events with a `codes` list.
 
 ## Duplicate protection
 
 A report key is `report_type|slot|model_version`, and a partial unique index
 enforces one *delivered* report per key. Running `run-once` twice for the same
-slot prints `skipped (already delivered)` and sends nothing. A failed delivery
-does not burn the key — the retry can still send.
+slot prints `duplicate` and sends nothing. A failed delivery does not burn the
+key — the retry can still send.
+
+Because `report_type` is part of the key, a snapshot and an analysis sharing a
+slot (13:00 and 21:00 by default) are two independent deliveries and neither
+suppresses the other.
+
+Bumping `model_version` changes every key, so a v1.1 report may publish into a
+slot a v1.0 report already used. Stored rows keep the version they were made
+under and are never rewritten.
 
 ## Backup and restore
 
@@ -75,11 +160,15 @@ prices can be re-fetched only for today, never for last month.
 | Symptom | Cause | Action |
 |---|---|---|
 | `not publishable: missing mandatory data` | provider down or a symbol vanished | `market-monitor health`; check `docs/PROVIDERS.md` mapping |
-| Report shows `stale:` warnings overnight | Iranian market closed; TGJU serves the previous close | expected — the report is labelled, not suppressed |
+| Snapshot shows `🕐 بر مبنای آخرین پایان معاملات` | Iranian market closed; TGJU serves the previous close | expected — the board is labelled, not suppressed |
+| Analysis withheld, log says `XAU_NOT_ALIGNED` | no stored ounce near the Tehran session | expected for the first ~day after install; persisting means runs are being missed, check `job_runs` |
+| Analysis withheld, log says `SESSION_INCOHERENT` | Iranian inputs come from different sessions | one symbol has frozen while others tick; check `ts` per symbol at TGJU |
 | `gold-implied USD is 10.0x the market USD` | a rial/toman unit regression | the run refused to publish; fix the unit mapping in the adapter |
+| Yen looks ~100× too small on the board | `price_jpy` read per-yen instead of per-100 | the source unit must be `rial/100jpy`; see `docs/PROVIDERS.md` |
 | `AuthenticationError` from Telegram | bad token, or bot is not a channel admin | re-check `.env`; add the bot to the channel as admin |
-| `skipped (already delivered)` | the slot already went out | intended; use a different slot or bump `model_version` |
-| Every trend prints `—` | fewer than 24h of history | expected on a new install; it fills in after a day |
+| `duplicate` | the slot already went out | intended; use a different slot or bump `model_version` |
+| No trend section in the analysis | fewer than 24h of history | expected on a new install; the section appears once history exists |
+| `no report slot due` | run fired away from every configured slot | intended noise control; `--type` forces one |
 
 ## Logs
 

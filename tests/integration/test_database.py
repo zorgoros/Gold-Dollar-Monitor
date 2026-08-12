@@ -12,7 +12,7 @@ from tests.conftest import AT
 
 def test_migrations_are_idempotent(tmp_path):
     conn = connect(tmp_path / "m.db")
-    assert migrate(conn) == ["001_initial"]
+    assert migrate(conn) == ["001_initial", "002_fx_instruments"]
     assert migrate(conn) == []
     conn.close()
 
@@ -87,3 +87,13 @@ def test_job_run_records_outcome(repo):
         "FAILED",
         "ProviderUnavailable",
     )
+
+
+def test_absolute_database_urls_stay_absolute(tmp_path):
+    """Four slashes means absolute. Stripping them all put the database inside
+    the repository instead of where the operator pointed it."""
+    from market_monitor.settings import ROOT, _db_path
+
+    absolute = tmp_path / "elsewhere.db"
+    assert _db_path(f"sqlite:///{absolute}") == absolute
+    assert _db_path("sqlite:///data/market.db") == ROOT / "data" / "market.db"

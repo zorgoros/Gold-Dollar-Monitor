@@ -8,6 +8,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from .domain.enums import Instrument
+
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_CONFIG = ROOT / "config" / "default.toml"
 
@@ -26,12 +28,19 @@ def load_env(path: Path | None = None) -> None:
 
 
 def _db_path(url: str) -> Path:
-    """sqlite:///relative/path or sqlite:////absolute/path -> Path."""
+    """sqlite:///relative/path or sqlite:////absolute/path -> Path.
+
+    The fourth slash is the whole difference and it is load-bearing: stripping
+    every leading slash turns an absolute path into a relative one, and the
+    database then silently appears inside the repository instead of at the
+    location the operator asked for.
+    """
     if not url.startswith("sqlite://"):
         raise ValueError(f"only sqlite URLs are supported in V1, got {url!r}")
-    rest = url[len("sqlite://") :].lstrip("/")
-    path = Path(rest)
-    return path if path.is_absolute() else ROOT / path
+    rest = url[len("sqlite://") :]
+    if rest.startswith("//"):
+        return Path(rest[1:])
+    return ROOT / rest.lstrip("/")
 
 
 @dataclass(frozen=True)
@@ -67,3 +76,16 @@ class Settings:
     def section(self, name: str) -> dict[str, Any]:
         value: dict[str, Any] = self.config.get(name, {})
         return value
+
+    def instrument_list(self, section: str, key: str) -> list[Instrument]:
+        """A configured list of instrument symbols, as instruments.
+
+        Collection, display, and analysis each name their own list, and they are
+        allowed to differ — that separation is the point (§27). An unknown
+        symbol raises here rather than being silently skipped later.
+        """
+        return [Instrument(s) for s in self.section(section).get(key, [])]
+
+    def slots(self, report_type: str) -> list[str]:
+        """Tehran-local slot times for one report type. Never hard-coded (§4)."""
+        return [str(s) for s in self.section("schedule").get(report_type, [])]

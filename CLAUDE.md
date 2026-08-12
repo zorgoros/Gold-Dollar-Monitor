@@ -4,18 +4,17 @@ Guidance for Claude Code (claude.ai/code) in this repository.
 
 ## State of the repository
 
-No code yet. [ARCHITECTURE.md](ARCHITECTURE.md) is the V1 spec and source of
-truth (~1500 lines) — read the section you need, not the file: formulas §4,
-DB §10, tree §17, error taxonomy §24, build phases §35, done §36, non-goals §37.
-
-Target: Python 3.12+, `src/market_monitor/`, SQLite, few dependencies (`httpx`,
-pydantic/dataclasses, pytest, ruff, mypy; APScheduler only if it beats cron).
+Shipped, at v1.1. Python 3.12+, `src/market_monitor/`, SQLite, `httpx` the only
+runtime dependency; cron schedules it. [ARCHITECTURE.md](ARCHITECTURE.md) is the
+spec — read the section you need, not the file: **v1.1 deltas §0**, formulas §4,
+DB §10, tree §17, error taxonomy §24, non-goals §37.
 
 ```bash
 python -m pytest                                     # all; -k or ::name for one
 ruff check src tests && ruff format --check src tests && mypy src
-market-monitor run-once                              # full pipeline once
-market-monitor report --dry-run                      # render only, never sends
+market-monitor run-once --dry-run                    # full pipeline, never sends
+market-monitor report --dry-run --type analysis      # force one report type
+market-monitor config                                # effective settings
 ```
 
 ## Architecture in one paragraph
@@ -24,26 +23,29 @@ providers → normalization → immutable raw storage → analysis → signals �
 reporting → publishers. Every arrow is a boundary that stays replaceable.
 Providers are adapters returning normalized `Quote` objects; nothing downstream
 knows TGJU exists. Analysis is pure and deterministic — no LLM in the numeric
-path. Reporting and publishers consume serializable output (widget JSON, §20),
-so Telegram is only the first surface.
+path. Reporting consumes serializable output (widget JSON, §20), so Telegram is
+one surface, not the model. Two public reports: a price board and a
+cross-market analysis, gated separately on data quality.
 
 ## Invariants that are easy to violate
 
-- **Units are never implicit** — canonical toman, gram, USD/troy oz, UTC in
-  storage; Jalali and Persian only at the reporting boundary.
-- **Constants once**: `TROY_OUNCE_GRAMS = 31.1034768`, `GOLD_18_PURITY = 0.75`,
+- **Units are never implicit** — toman, gram, USD/troy oz, toman per **one** FX
+  unit, UTC in storage; Jalali and Persian only at the reporting boundary. TGJU
+  quotes rial (÷10) and the yen per 100 (÷100 too).
+- **Constants once**: `TROY_OUNCE_GRAMS`, `GOLD_18_PURITY`, `USD_AED_PEG`;
   `GOLD_18_CONVERSION` derived. Never `41.46` inline.
 - **Implied USD and theoretical gold are one relationship** algebraically
-  inverted — never two pieces of evidence in a score.
+  inverted — never two pieces of evidence. AED-implied USD *is* independent, so
+  it may be compared with them, but never averaged into a composite.
+- **A closed Tehran session is never paired with a live world ounce** — align
+  the ounce from stored history, or withhold the analysis.
 - **Raw observations are immutable**, carry full provenance, and are stored
-  before anything is derived from them.
-- **Thresholds live in YAML, marked provisional** — not in source, not asserted
-  as economic truth.
-- **Failure is visible**: stale or missing mandatory data ⇒ no normal report,
-  store the failure event instead.
-- **Signals are objects** carrying machine-readable `reason_codes`.
-- **Indicators, not advice** — `نرخ ضمنی دلار` / "gold-implied USD", never
-  "intrinsic value", no guarantees in wording.
+  before anything is derived from them. Thresholds live in config, provisional.
+- **Failure is visible, but not to the reader**: gated reports publish a short
+  status line; diagnostics go to `job_runs` and the log, never the channel.
+- **Signals are objects** with machine-readable `reason_codes`. Indicators, not
+  advice: `نرخ ضمنی`, `ارزش نظری`, `ارزش طلای سکه`, never `ارزش ذاتی`; state
+  distances, not verdicts.
 - **Idempotency key** `report_type + scheduled_slot + model_version`; record the
   Telegram message id after. Analytical changes bump a persisted model version.
 

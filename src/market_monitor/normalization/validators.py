@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta
 
 from ..analysis.formulas import gold_implied_usd
-from ..domain.enums import Instrument, QualityStatus, SnapshotStatus
+from ..domain.enums import GateCode, Instrument, QualityStatus, SnapshotStatus
 from ..domain.errors import InvalidQuote
 from ..domain.models import Quote
 
@@ -43,9 +43,22 @@ def validate_quote(
 
 @dataclass(frozen=True)
 class SnapshotVerdict:
+    """The verdict on a set of quotes.
+
+    `codes` is the machine-readable finding; `warnings` is the engineer-readable
+    detail behind it. Only `codes` may influence what a reader sees — the
+    warning strings are for logs, `job_runs`, and admin diagnostics, never for a
+    public report (§17, §38).
+    """
+
     status: SnapshotStatus
     warnings: list[str]
     publishable: bool
+    codes: list[GateCode] = field(default_factory=list)
+
+    @property
+    def blocking_code(self) -> GateCode:
+        return self.codes[0] if self.codes and not self.publishable else GateCode.OK
 
 
 def validate_snapshot(
@@ -54,41 +67,60 @@ def validate_snapshot(
     now: datetime,
     window: timedelta,
 ) -> SnapshotVerdict:
-    """Decide whether this set of quotes may be published as a normal report."""
+    """Decide whether this set of quotes may be published at all.
+
+    This is the *snapshot* gate and it is the tolerant one (§15): it refuses
+    only data that is absent, unusable, or a unit regression. Staleness is
+    recorded but does not block, because a price board quoting the last close is
+    honest as long as it says so. The strict gate that staleness does block is
+    the analysis one — `analysis/session.py` plus this verdict together.
+    """
     warnings: list[str] = []
+    codes: list[GateCode] = []
 
     missing = [i.value for i in mandatory if i not in quotes]
     if missing:
         return SnapshotVerdict(
-            SnapshotStatus.FAILED, [f"missing mandatory data: {', '.join(missing)}"], False
+            SnapshotStatus.FAILED,
+            [f"missing mandatory data: {', '.join(missing)}"],
+            False,
+            [GateCode.MISSING_MANDATORY],
         )
 
     invalid = [i.value for i, q in quotes.items() if q.quality_status is QualityStatus.INVALID]
     if invalid:
         return SnapshotVerdict(
-            SnapshotStatus.FAILED, [f"invalid quotes: {', '.join(invalid)}"], False
+            SnapshotStatus.FAILED,
+            [f"invalid quotes: {', '.join(invalid)}"],
+            False,
+            [GateCode.INVALID_QUOTE],
+        )
+
+    parity = check_unit_sanity(quotes)
+    if parity:
+        # A unit regression is not a market condition — refuse to publish it.
+        return SnapshotVerdict(
+            SnapshotStatus.FAILED, [parity], False, [GateCode.UNIT_SANITY_FAILED]
         )
 
     observed = [q.observed_at for i, q in quotes.items() if i in mandatory]
     spread = max(observed) - min(observed)
     if spread > window:
         warnings.append(f"quotes span {int(spread.total_seconds() / 60)} minutes")
+        codes.append(GateCode.SNAPSHOT_WINDOW_EXCEEDED)
 
     stale = [i.value for i, q in quotes.items() if q.quality_status is QualityStatus.STALE]
     if stale:
         warnings.append(f"stale: {', '.join(sorted(stale))}")
+        codes.append(GateCode.STALE_REQUIRED_INPUT)
 
     suspect = [i.value for i, q in quotes.items() if q.quality_status is QualityStatus.SUSPECT]
     if suspect:
         warnings.append(f"suspect move: {', '.join(sorted(suspect))}")
-
-    parity = check_unit_sanity(quotes)
-    if parity:
-        # A unit regression is not a market condition — refuse to publish it.
-        return SnapshotVerdict(SnapshotStatus.FAILED, [parity], False)
+        codes.append(GateCode.SUSPECT_MOVE)
 
     status = SnapshotStatus.PARTIAL if warnings else SnapshotStatus.COMPLETE
-    return SnapshotVerdict(status, warnings, True)
+    return SnapshotVerdict(status, warnings, True, codes or [GateCode.OK])
 
 
 def check_unit_sanity(quotes: dict[Instrument, Quote]) -> str | None:

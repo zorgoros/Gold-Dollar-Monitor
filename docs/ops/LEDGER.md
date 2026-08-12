@@ -59,3 +59,48 @@ the dedup gate and the ID sequence.
 - [ ] P1 — scope it
 
 ### Notes
+
+## TASK-004 · v1.1 upgrade: AED analytical input, FX board, publication gate · DONE
+**Family:** v11,aed,fx,gate,reporting,settings,upgrade
+**Raised:** 2026-08-12
+**Summary:** cross-market monitoring upgrade — AED-implied USD, four FX instruments, temporal publication gate, two report types
+
+### Phases
+- [x] P1 — domain, units, AED formula, JPY per-100 handling
+- [x] P2 — session alignment and the two-tier gate
+- [x] P3 — migration 002, config schema, settings accessors
+- [x] P4 — snapshot and analysis formatters, configurable footer
+- [x] P5 — tests (189 green), docs, live dry-run
+
+### Notes
+Coin formula audited and left unchanged; the open economic question is EXTENSIONS Q.
+
+## BUG-005 · absolute DATABASE_URL resolved relative to the repository · DONE
+**Family:** settings,database,url,path,config
+**Raised:** 2026-08-12
+**Summary:** _db_path stripped every leading slash, so sqlite:////abs/path created the database inside the repo
+
+### Notes
+Found by hitting it during v1.1 dry-run validation; it silently created a private/ tree at the repo root. Fixed to honour the four-slash absolute form, with a regression test in test_database.py.
+
+## GAP-006 · coin premium is not independent of the USD/gold gap · OPEN
+**Family:** coin,formula,premium,gold,economics,double-counting
+**Raised:** 2026-08-12
+**Summary:** coin_intrinsic values the coin's gold via xau x usd, so coin_premium_pct contains gold_gap_pct in full
+
+### Phases
+- [ ] P1 — owner decides the intended economic meaning (see EXTENSIONS Q)
+
+### Notes
+Measured 2026-08-12: -2.34% via the world route vs +1.09% against domestic 18K gold, differing by exactly the 3.43% gold gap. Formula deliberately unchanged in v1.1 — changing it is an economic decision, not a bug fix.
+
+## GAP-007 · session close is one configured hour, not a Tehran trading calendar · OPEN
+**Family:** session,calendar,alignment,gate,tehran
+**Raised:** 2026-08-12
+**Summary:** analysis/session.py moves TGJU's zeroed session marker to a single configured close hour, which does not know holidays or early closes
+
+### Phases
+- [ ] P1 — scope it
+
+### Notes
+Marked with a ponytail: comment in analysis/session.py. The 12h alignment tolerance absorbs the error on an unusual day; a real calendar is the upgrade path if that proves too coarse.

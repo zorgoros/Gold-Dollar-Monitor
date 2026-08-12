@@ -1,5 +1,6 @@
 # /etc/cron.d/market-monitor
-# Slots must match [schedule].reports in config/default.toml.
+# Must fire at the UNION of [schedule].snapshot and [schedule].analysis in
+# config/default.toml. One run publishes whichever slots the time matches.
 CRON_TZ=Asia/Tehran
 SHELL=/bin/bash
 

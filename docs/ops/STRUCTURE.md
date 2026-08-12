@@ -19,7 +19,7 @@ exist yet; create them when the phase that needs them lands (§35), not before.
 | `src/market_monitor/publishers/` | Telegram and future delivery surfaces | rendering, analysis |
 | `src/market_monitor/jobs/` | collect, report, alerts, health entrypoints | logic worth unit-testing |
 | `src/market_monitor/observability/` | logging setup, health checks | secrets, tokens |
-| `config/` | `default.yaml`, `logging.yaml` — thresholds, schedules | secrets, `.env` |
+| `config/` | `default.toml` — thresholds, schedules, display, footer | secrets, `.env` |
 | `migrations/` | forward schema migrations | hand-applied SQL |
 | `tests/unit/` `tests/integration/` `tests/fixtures/` | tests and captured provider payloads | live network calls |
 | `scripts/` | bootstrap, backup, one-shot import | anything imported by `src/` |

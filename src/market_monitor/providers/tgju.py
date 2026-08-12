@@ -8,6 +8,10 @@ Two things here are load-bearing:
 * A `ts` whose time component is 00:00:00 is the previous close, not a live
   tick. It is passed through as the source timestamp so staleness is decided by
   the validator instead of being hidden here.
+* `price_jpy` is quoted per **100** yen, not per yen. Verified 2026-08-12
+  against the USD/JPY cross (ratio 99.62). Reading it per-yen is a 100x error —
+  larger than the rial trap — so it carries its own source unit and is
+  converted, never assumed.
 """
 
 from __future__ import annotations
@@ -40,6 +44,10 @@ SYMBOLS: dict[Instrument, tuple[str, Unit]] = {
     Instrument.GOLD_18K: ("geram18", Unit.RIAL_PER_GRAM),
     Instrument.XAU_USD: ("ons", Unit.USD_PER_TROY_OUNCE),
     Instrument.EMAMI_COIN: ("sekee", Unit.RIAL_PER_COIN),
+    Instrument.AED_IRT: ("price_aed", Unit.RIAL_PER_AED),
+    Instrument.EUR_IRT: ("price_eur", Unit.RIAL_PER_EUR),
+    Instrument.TRY_IRT: ("price_try", Unit.RIAL_PER_TRY),
+    Instrument.JPY_IRT: ("price_jpy", Unit.RIAL_PER_100_JPY),
 }
 
 

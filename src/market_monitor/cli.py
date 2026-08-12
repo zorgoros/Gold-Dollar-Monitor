@@ -5,10 +5,14 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
+from datetime import datetime
 
+from .domain.enums import ReportType
 from .domain.errors import MarketMonitorError
+from .domain.models import Snapshot
 from .jobs.collect import build_chain, collect
-from .jobs.report import build_report, publish
+from .jobs.report import base_analysis, due_report_types, prepare, publish, store_analytics
+from .normalization.validators import SnapshotVerdict
 from .observability.logging import configure
 from .publishers.telegram import TelegramPublisher
 from .settings import Settings
@@ -54,6 +58,52 @@ def cmd_fetch(settings: Settings, _: argparse.Namespace) -> int:
     return 0 if verdict.publishable else 1
 
 
+TYPES = {"snapshot": ReportType.MARKET_SNAPSHOT, "analysis": ReportType.AYAR_ANALYSIS}
+
+
+def _wanted(settings: Settings, args: argparse.Namespace, at: datetime) -> list[ReportType]:
+    """Which report types to produce: the ones forced, else the ones due now.
+
+    Off-slot runs publish nothing by default — that is the noise control in §37.
+    A dry run with nothing due still renders both, so an operator can look.
+    """
+    if args.type:
+        return [TYPES[args.type]]
+    due = due_report_types(at, settings)
+    if not due and args.dry_run:
+        return list(TYPES.values())
+    return due
+
+
+def _emit(
+    repo: Repository,
+    settings: Settings,
+    args: argparse.Namespace,
+    snapshot: Snapshot,
+    verdict: SnapshotVerdict | None,
+) -> list[str]:
+    observation = base_analysis(repo, settings, snapshot, verdict)
+    store_analytics(repo, snapshot, observation)
+    results: list[str] = []
+    for report_type in _wanted(settings, args, snapshot.snapshot_at):
+        prepared = prepare(repo, settings, snapshot, verdict, report_type, observation)
+        if args.dry_run:
+            print(f"───── {report_type.value} " + ("(GATED)" if prepared.gated else ""))
+            print(prepared.report.content)
+            print()
+            for line in prepared.diagnostics:
+                print(f"  diag: {line}", file=sys.stderr)
+            results.append(f"{report_type.value}:rendered")
+            continue
+        outcome = publish(repo, prepared.report, _publisher(settings), prepared.analysis)
+        state = "duplicate" if outcome.skipped_duplicate else "sent"
+        print(f"{report_type.value}: {state}{' (gated)' if prepared.gated else ''}")
+        results.append(f"{report_type.value}:{state}")
+    if not results:
+        print("no report slot due — use --type to force one")
+    return results
+
+
 def cmd_report(settings: Settings, args: argparse.Namespace) -> int:
     """Re-render the stored latest snapshot. --dry-run never reaches Telegram."""
     repo = _repo(settings)
@@ -61,12 +111,7 @@ def cmd_report(settings: Settings, args: argparse.Namespace) -> int:
     if snapshot is None:
         print("no snapshot stored yet — run: market-monitor fetch", file=sys.stderr)
         return 1
-    report, analysis = build_report(repo, settings, snapshot)
-    if args.dry_run:
-        print(report.content)
-        return 0
-    outcome = publish(repo, report, _publisher(settings), analysis)
-    print("skipped (already delivered)" if outcome.skipped_duplicate else "sent")
+    _emit(repo, settings, args, snapshot, None)
     return 0
 
 
@@ -76,31 +121,46 @@ def cmd_run_once(settings: Settings, args: argparse.Namespace) -> int:
     try:
         snapshot, verdict, snapshot_id = collect(repo, settings)
         if not verdict.publishable:
+            # Raw quotes are stored regardless; what is refused is publication.
             repo.finish_job(job, "FAILED", "InsufficientSnapshot", "; ".join(verdict.warnings))
             print("not publishable: " + "; ".join(verdict.warnings), file=sys.stderr)
             return 1
-        report, analysis = build_report(repo, settings, snapshot, verdict)
-        if args.dry_run:
-            repo.finish_job(job, "OK", metadata={"snapshot_id": snapshot_id, "dry_run": True})
-            print(report.content)
-            return 0
-        outcome = publish(repo, report, _publisher(settings), analysis)
+        results = _emit(repo, settings, args, snapshot, verdict)
         repo.finish_job(
             job,
             "OK",
-            metadata={
-                "snapshot_id": snapshot_id,
-                "published": outcome.published,
-                "message_id": outcome.report.telegram_message_id,
-            },
+            metadata={"snapshot_id": snapshot_id, "dry_run": args.dry_run, "reports": results},
         )
-        print("skipped (already delivered)" if outcome.skipped_duplicate else "sent")
         return 0
     except MarketMonitorError as exc:
         repo.finish_job(job, "FAILED", type(exc).__name__, str(exc))
         log.error("run_once_failed", exc_info=True)
         print(f"{type(exc).__name__}: {exc}", file=sys.stderr)
         return 1
+
+
+def cmd_config(settings: Settings, _: argparse.Namespace) -> int:
+    """Show the effective administrative settings (§35)."""
+    schedule = settings.section("schedule")
+    print(f"model version   {settings.model_version}")
+    print(f"timezone        {settings.timezone}")
+    print(f"snapshot slots  {', '.join(schedule.get('snapshot', [])) or '(none)'}")
+    print(f"analysis slots  {', '.join(schedule.get('analysis', [])) or '(none)'}")
+    for section, key in (
+        ("instruments", "mandatory"),
+        ("instruments", "optional"),
+        ("instruments", "analysis_required"),
+        ("instruments", "analysis_optional"),
+        ("display", "fx"),
+        ("display", "metals"),
+    ):
+        names = [i.value for i in settings.instrument_list(section, key)]
+        print(f"{section}.{key:<18} {', '.join(names) or '(none)'}")
+    print(f"usd/aed peg     {settings.section('peg').get('usd_aed')}")
+    footer = settings.section("reporting").get("footer", {})
+    for field_name in ("brand_name", "bot_username", "channel_username"):
+        print(f"footer.{field_name:<16} {footer.get(field_name, '') or '(unset)'}")
+    return 0
 
 
 def cmd_health(settings: Settings, _: argparse.Namespace) -> int:
@@ -135,14 +195,21 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("fetch", help="fetch, validate, and store one snapshot")
 
-    report = sub.add_parser("report", help="render the latest stored snapshot")
-    report.add_argument("--dry-run", action="store_true", help="print instead of publishing")
-
-    run_once = sub.add_parser("run-once", help="fetch, analyse, render, publish")
-    run_once.add_argument("--dry-run", action="store_true", help="print instead of publishing")
+    for name, help_text in (
+        ("report", "render the latest stored snapshot"),
+        ("run-once", "fetch, analyse, render, publish"),
+    ):
+        cmd = sub.add_parser(name, help=help_text)
+        cmd.add_argument("--dry-run", action="store_true", help="print instead of publishing")
+        cmd.add_argument(
+            "--type",
+            choices=sorted(TYPES),
+            help="force one report type instead of the slots due now",
+        )
 
     sub.add_parser("health", help="provider, credential, and database status")
     sub.add_parser("db-info", help="row counts and latest snapshot")
+    sub.add_parser("config", help="show the effective schedule, instruments, and footer")
     return parser
 
 
@@ -152,6 +219,7 @@ COMMANDS = {
     "run-once": cmd_run_once,
     "health": cmd_health,
     "db-info": cmd_db_info,
+    "config": cmd_config,
 }
 
 

@@ -49,3 +49,9 @@ Blocked: none
 Did: V1 shipped: published to Telegram, footer channel line, Persian pinned-message doc, token-in-logs fix
 Next: V1.1 scope
 Blocked: none
+
+## 2026-08-12 16:30 · claude-solo
+Did: v1.1 shipped: AED-implied USD, 4 FX instruments, temporal publication gate, two report types, config-driven schedule/display/footer, coin audit; 189 tests green; migration 002 applied to prod db
+Next: controlled Telegram test of both report types, then enable the new cron slots
+Blocked: coin formula question open with the owner (EXTENSIONS Q) — formula left unchanged
+

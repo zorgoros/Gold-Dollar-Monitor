@@ -10,18 +10,47 @@ has changed symbol behaviour before.
 
 ## TL;DR — symbol mapping
 
-| Our instrument | Provider symbol | JSON path (primary endpoint) | Unit as returned | Divide by 10? |
+| Our instrument | Provider symbol | JSON path (primary endpoint) | Unit as returned | Conversion to canonical |
 |---|---|---|---|---|
-| `usd_irr_free` | `price_dollar_rl` | `current.price_dollar_rl.p` | **rial (IRR)** | **YES** |
-| `gold_18k` | `geram18` | `current.geram18.p` | **rial (IRR)** | **YES** |
-| `xau_usd` | `ons` | `current.ons.p` | **USD / troy ounce** | no |
-| `emami_coin` | `sekee` | `current.sekee.p` | **rial (IRR)** | **YES** |
+| `usd_irr_free` | `price_dollar_rl` | `current.price_dollar_rl.p` | **rial (IRR)** | **÷ 10** |
+| `gold_18k` | `geram18` | `current.geram18.p` | **rial (IRR)** | **÷ 10** |
+| `xau_usd` | `ons` | `current.ons.p` | **USD / troy ounce** | none |
+| `emami_coin` | `sekee` | `current.sekee.p` | **rial (IRR)** | **÷ 10** |
+| `aed_irt` | `price_aed` | `current.price_aed.p` | **rial (IRR)** | **÷ 10** |
+| `eur_irt` | `price_eur` | `current.price_eur.p` | **rial (IRR)** | **÷ 10** |
+| `try_irt` | `price_try` | `current.price_try.p` | **rial (IRR)** | **÷ 10** |
+| `jpy_irt` | `price_jpy` | `current.price_jpy.p` | **rial per 100 JPY** | **÷ 10 then ÷ 100** |
 
-Primary endpoint is `https://call1.tgju.org/ajax.json` for all four.
+Primary endpoint is `https://call1.tgju.org/ajax.json` for all eight. The four FX symbols
+were verified live on 2026-08-12 alongside the original four.
 
 > **The 10x trap.** TGJU quotes all Iranian instruments in **rial**, while Iranian users,
 > news sites and everyday speech quote **toman**. Publishing the raw number as toman is a
-> 10x error. `ons` is the only one of the four that needs no conversion.
+> 10x error. `ons` is the only one that needs no conversion.
+
+> **The 100x trap (`price_jpy`).** The yen is quoted **per 100 yen**, not per yen. Read
+> per-yen it is a 100x error — an order of magnitude worse than the rial trap, and it does
+> not look absurd on inspection the way a billion-toman coin does. Verified arithmetically
+> on 2026-08-12: `diff_usd_jpy` = 159.09 and `price_dollar_rl` = 1,878,000 rial, so one yen
+> is 1,878,000 / 159.09 = **11,805 rial**. Observed `price_jpy` = 1,176,000 rial, and
+> 1,176,000 / 11,805 = **99.62** — i.e. a hundred yen. Confirmed independently by the
+> ordering of the FX board: at ~117,600 toman `price_jpy` sits between the euro and the
+> dirham, which is impossible for a single yen.
+>
+> The unit is declared as `rial/100jpy` in the adapter and converted in
+> `normalization/units.py`. Canonical storage is toman per **one** yen so every currency
+> shares one scale; the report multiplies back to 100 and labels it (§6).
+
+### Cross-checks used to confirm the four new symbols are rial-per-unit
+
+All against the same capture, USD = 187,800 toman:
+
+| Symbol | toman | independent check | agreement |
+|---|---|---|---|
+| `price_aed` | 51,161 | 187,800 / 3.6725 peg = 51,137 | 0.05% |
+| `price_eur` | 216,760 | 1.1543 `diff_eur_usd` × 187,800 = 216,777 | 0.01% |
+| `price_try` | 3,910 | 187,800 / 47.756 `diff_usd_try` = 3,932 | 0.6% |
+| `price_jpy` | 1,176 per yen | 187,800 / 159.09 `diff_usd_jpy` = 1,180 | 0.4% |
 
 ---
 
@@ -130,6 +159,17 @@ when captured. Meanwhile `ons` carried a live second-resolution `ts` of `2026-08
 
 **Consumers must read `ts` and treat the value as a previous close, not a live quote.**
 A `00:00:00` time component is the signal. Do not infer freshness from the request time.
+
+The four FX symbols behave exactly like the other rial instruments: on 2026-08-12 at 15:33
+Tehran, `price_aed`, `price_eur`, `price_try` and `price_jpy` all carried
+`2026-08-11 00:00:00` while `ons` carried a live second-resolution tick.
+
+> **`00:00:00` is a date, not a closing bell.** TGJU zeroes the clock; it does not report
+> when the session actually ended. Anchoring anything on that midnight puts it ~17 hours
+> before the prices it describes. `analysis/session.py` moves the marker to
+> `[analysis].tehran_session_close` before aligning a world-ounce observation to it, which
+> is why v1.1 can pair a closed Iranian session with the ounce that was true at the time
+> instead of the one printing right now.
 
 ### Rate limits
 
@@ -311,8 +351,10 @@ of `ons / 31.1035 × 0.75 × usd_toman`, and the Emami coin within a few percent
 
 ## Limitations summary
 
-1. **Rial vs toman is the highest-risk defect in this integration.** Three of four instruments
-   need `/10`. Assert on the ratio checks above rather than trusting the field.
+1. **Rial vs toman is the highest-risk defect in this integration.** Seven of eight
+   instruments need `/10`. Assert on the ratio checks above rather than trusting the field.
+   `price_jpy` needs `/100` on top of that — the only symbol not quoted per single unit,
+   and the one whose error would be least visible on inspection.
 2. **Rial instruments are not live outside Tehran market hours.** Read `ts`; a `00:00:00`
    time component means previous close.
 3. **Price string format varies per symbol** in the same response. Always strip commas, always
@@ -324,7 +366,11 @@ of `ons / 31.1035 × 0.75 × usd_toman`, and the Emami coin within a few percent
    300s `max-age`.
 6. **No published rate limits** — which means no guarantees either. Be conservative; 60s
    polling is plenty for instruments that move a few times a day.
-7. **Iranian instruments are single-sourced.** No independent free fallback was found.
+7. **Iranian instruments are single-sourced.** No independent free fallback was found. This
+   now covers seven symbols rather than three, so a TGJU outage takes the whole FX board
+   down with the gold complex. The dirham is a partial mitigation for the *analysis* — it
+   reaches a USD figure through a different mechanism — but not for *availability*, since
+   it arrives over the same connection.
 8. `summary-table-data` returns **full history, up to 2 MB**, on every call. Backfill only.
 
 ## Symbols worth knowing (not currently mapped)
@@ -339,7 +385,9 @@ Found while verifying; noted so they aren't rediscovered later. All in rial.
 | `sekeb` | Bahar Azadi coin | trades just under Emami, a useful sanity companion |
 | `mesghal` | gold per mesghal (4.6083 g) | internally consistent with `geram18 = mesghal / 4.3318` |
 | `retail_sekee` / `sekee_real` | retail / "real" Emami quotes | spread against `sekee` |
-| `price_eur` | EUR free-market | |
+| `diff_usd_aed` | market USD/AED cross | read 3.6715 on 2026-08-12 vs the 3.6725 peg — useful as a peg-drift monitor, not as the peg itself |
+| `diff_usd_jpy`, `diff_eur_usd`, `diff_usd_try` | world crosses | how the per-unit checks above were computed |
+| `usdt-irr` | Tether/rial | **dead** — `ts` of 2020-11-11. Any future USDT work needs a different source (EXTENSIONS) |
 
 If `gold_18k` needs to be live rather than previous-close, `tgju_gold_irg18` is the swap —
 but it is a slightly different series (TGJU's own index, ~2.9% above `geram18` at capture),

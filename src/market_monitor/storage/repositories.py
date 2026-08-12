@@ -136,6 +136,23 @@ class Repository:
             return None
         return float(row["metric_value"]), from_iso(row["created_at"])
 
+    def metric_before(self, name: str, before: datetime) -> tuple[float, datetime] | None:
+        """The most recent value of a metric strictly before an instant.
+
+        Powers "change since the previous report" (§18), which is a different
+        question from `metric_near`: that one asks for a fixed lookback, this
+        one asks what the last thing we published said.
+        """
+        row = self.conn.execute(
+            "SELECT metric_value, created_at FROM metrics"
+            " WHERE metric_name = ? AND created_at < ?"
+            " ORDER BY created_at DESC LIMIT 1",
+            (name, to_iso(before)),
+        ).fetchone()
+        if row is None:
+            return None
+        return float(row["metric_value"]), from_iso(row["created_at"])
+
     def latest_snapshot(self) -> Snapshot | None:
         row = self.conn.execute(
             "SELECT id, snapshot_at, status FROM snapshots ORDER BY snapshot_at DESC LIMIT 1"
