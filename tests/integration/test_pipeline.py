@@ -61,6 +61,16 @@ def test_full_pipeline_produces_a_persian_report(repo, settings):
     assert counts["metrics"] >= 7 and counts["signals"] >= 2
 
 
+def test_collect_attaches_the_snapshot_id_so_the_time_series_gets_written(repo, settings):
+    """Without the id, build_report writes no metrics and trends stay empty forever."""
+    snapshot, verdict, snapshot_id = collect(repo, settings, [fixture_provider()])
+    assert snapshot.id == snapshot_id
+
+    build_report(repo, settings, snapshot, verdict)
+    counts = repo.counts()
+    assert counts["metrics"] >= 7 and counts["signals"] >= 2
+
+
 def test_all_providers_failing_yields_an_unpublishable_snapshot(repo, settings):
     class Dead:
         name = "dead"

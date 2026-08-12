@@ -5,6 +5,7 @@ snapshot is not publishable: a failed run is data too.
 from __future__ import annotations
 
 import logging
+from dataclasses import replace
 from datetime import timedelta
 
 from ..domain.enums import Instrument
@@ -85,5 +86,9 @@ def collect(
         timedelta(minutes=float(freshness.get("snapshot_window_minutes", 15))),
     )
     snapshot = Snapshot(snapshot_at=now, quotes=collected, status=verdict.status)
-    snapshot_id = repo.save_snapshot(snapshot) if collected else 0
-    return snapshot, verdict, snapshot_id
+    if not collected:
+        return snapshot, verdict, 0
+    snapshot_id = repo.save_snapshot(snapshot)
+    # The id has to travel with the snapshot: everything downstream keys metrics
+    # and signals off it, and a snapshot without one writes no time series at all.
+    return replace(snapshot, id=snapshot_id), verdict, snapshot_id
