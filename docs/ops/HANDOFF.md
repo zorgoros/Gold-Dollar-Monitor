@@ -39,3 +39,8 @@ Blocked: none
 Did: built V1 phases 0-9: domain, storage, TGJU adapter, analysis, Persian report, Telegram publisher, CLI, ops; 117 tests green; live dry-run verified
 Next: wire real Telegram credentials and do the section 9 controlled test publish
 Blocked: none
+
+## 2026-08-12 12:30 · claude-solo
+Did: added MIT licence, DISCLAIMER, SECURITY, NOTICE, report attribution; pushed to github.com/zorgoros/Gold-Dollar-Monitor; CI green
+Next: wire Telegram credentials and do the controlled test publish
+Blocked: none
