@@ -41,6 +41,18 @@ def report_key(report_type: ReportType, slot: str, model_version: str) -> str:
     return f"{report_type.value}|{slot}|{model_version}"
 
 
+def channel_note(settings: Settings) -> str:
+    """Operator footer line: the configured note, or the channel handle itself.
+
+    A numeric private-channel id is not shown — it is meaningless to readers.
+    """
+    note = str(settings.section("reporting").get("channel_note", "")).strip()
+    if note:
+        return note
+    handle = (settings.telegram_channel or "").strip()
+    return handle if handle.startswith("@") else ""
+
+
 @dataclass(frozen=True)
 class ReportOutcome:
     report: Report
@@ -70,7 +82,7 @@ def build_report(
     report = Report(
         report_type=report_type,
         report_key=report_key(report_type, slot, analysis.model_version),
-        content=render(analysis, str(settings.section("reporting").get("channel_note", ""))),
+        content=render(analysis, channel_note(settings)),
         channel="telegram",
         generated_at=now_utc(),
         model_version=analysis.model_version,

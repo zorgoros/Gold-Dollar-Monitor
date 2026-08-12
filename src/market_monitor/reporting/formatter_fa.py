@@ -125,7 +125,7 @@ def render(analysis: Analysis, channel_note: str = "") -> str:
     oldest = min((q.observed_at for q in analysis.snapshot.quotes.values()), default=analysis.as_of)
     lines += [
         "",
-        f"آخرین داده: {to_tehran(oldest):%H:%M}",
+        f"قدیمی‌ترین داده: {to_tehran(oldest):%H:%M}",
         f"مدل: v{analysis.model_version}",
         "",
         DISCLAIMER,

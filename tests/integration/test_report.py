@@ -1,5 +1,6 @@
 import json
 from datetime import timedelta
+from pathlib import Path
 
 from market_monitor.analysis import engine
 from market_monitor.analysis.engine import analyze
@@ -37,6 +38,24 @@ def test_report_always_carries_the_disclaimer(repo, snapshot):
 def test_report_always_carries_the_attribution(repo, snapshot):
     """See NOTICE. Removing this is a deliberate act, not an accident."""
     assert ATTRIBUTION in render(analyze(snapshot(), repo, CONFIG))
+
+
+def test_channel_handle_is_used_when_no_note_is_configured():
+    from market_monitor.jobs.report import channel_note
+    from market_monitor.settings import Settings
+
+    def settings_with(channel):
+        return Settings(
+            config={"reporting": {"channel_note": ""}},
+            db_path=Path("x.db"),
+            telegram_token=None,
+            telegram_channel=channel,
+            log_level="INFO",
+        )
+
+    assert channel_note(settings_with("@my_channel")) == "@my_channel"
+    # a numeric private-channel id means nothing to a reader
+    assert channel_note(settings_with("-1001234567890")) == ""
 
 
 def test_channel_note_adds_to_the_attribution_it_cannot_replace_it(repo, snapshot):
