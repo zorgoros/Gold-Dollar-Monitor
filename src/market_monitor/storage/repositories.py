@@ -246,10 +246,11 @@ class Repository:
         )
 
     def last_job(self, job_name: str) -> sqlite3.Row | None:
-        return self.conn.execute(
+        row: sqlite3.Row | None = self.conn.execute(
             "SELECT * FROM job_runs WHERE job_name = ? ORDER BY started_at DESC LIMIT 1",
             (job_name,),
         ).fetchone()
+        return row
 
     def counts(self) -> dict[str, int]:
         tables = ("quotes", "snapshots", "metrics", "signals", "reports", "job_runs")
