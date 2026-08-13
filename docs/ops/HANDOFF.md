@@ -55,3 +55,8 @@ Did: v1.1 shipped: AED-implied USD, 4 FX instruments, temporal publication gate,
 Next: controlled Telegram test of both report types, then enable the new cron slots
 Blocked: coin formula question open with the owner (EXTENSIONS Q) — formula left unchanged
 
+
+## 2026-08-13 14:10 · claude-solo
+Did: resolved the 403 (two channels with near-identical names; .env pointed at the one the bot was not in — now the numeric id); v1.1 committed and merged to main; v1.2 shipped: coin premium moved to a domestic gold denominator, gold_24k instrument, world route retired to a non-public series, migration 003 applied to prod db; 193 tests green; cross-checked against TGJU sekee_real to 0.001%
+Next: pin the updated Persian message; decide whether `market-monitor health` should call Telegram live; watch the first post-bump slot for the expected duplicate-key extra message
+Blocked: none — footer channel line stays absent until the channel has a public handle (§24)
