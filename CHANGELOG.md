@@ -1,5 +1,35 @@
 # Changelog
 
+## 1.2.0 — 2026-08-13
+
+Formula version 1.2, signal model 1.2, report template 1.2. One change, to what
+the published coin premium means. Additive in storage — no stored row is
+rewritten and every 1.1 report keeps its own model version.
+
+**The coin premium is now measured against domestic gold**
+- `حباب سکه` is the premium over the Tehran pure-gold value, which is what
+  Iranian market participants mean by the word. Previously it valued the coin's
+  gold through `xau_usd × usd_market` and so inherited `gold_gap_pct` in full —
+  it restated the USD/gold divergence the report had already given one section
+  earlier, and could print the implausible result of a minted coin trading
+  below its own melt value.
+- New instrument `gold_24k` from TGJU's `geram24`, with `geram18 / 0.75` as an
+  equivalent fallback. `geram24` is derived from `geram18` (they agree to
+  0.0007%), so it is preferred for being direct, not for being independent.
+- Cross-checked against TGJU's own `sekee_real`: agreement to **0.001%**, which
+  independently validates `EMAMI_COIN_GRAMS` and `EMAMI_COIN_PURITY` as well as
+  the arithmetic. On the 2026-08-11 close the premium reads +1.09% domestic
+  against −2.07% world, the difference being the gold gap exactly.
+- `coin_intrinsic` and `coin_premium_pct` are **retired, not redefined**. The
+  published series are `coin_intrinsic_domestic` and `coin_premium_domestic_pct`;
+  `coin_intrinsic_world` and `coin_premium_world_pct` are computed and stored
+  but never rendered and never entered into a model beside `gold_gap_pct`.
+- `gold_pure_domestic` records the denominator actually used, so a stored
+  premium is reproducible whichever input supplied it.
+
+**Migration**: `003_gold_24k.sql` inserts one instrument row. No column is
+altered and no data is deleted.
+
 ## 1.1.0 — 2026-08-12
 
 Formula version 1.1, signal model 1.1, report template 1.1. Brand: عیار مارکت /

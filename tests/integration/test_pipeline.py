@@ -146,7 +146,7 @@ def test_raw_quotes_are_preserved_even_when_the_snapshot_is_degraded(repo, setti
     snapshot, verdict, _ = collect(repo, settings, [fixture_provider(payload)])
     assert verdict.publishable
     assert Instrument.EMAMI_COIN not in snapshot.quotes
-    assert repo.counts()["quotes"] == 7
+    assert repo.counts()["quotes"] == 8
 
 
 # ------------------------------------------------------- the publication gate
@@ -299,7 +299,7 @@ def test_the_two_report_types_do_not_share_a_delivery_key(repo, settings, snapsh
         for report_type in (ReportType.MARKET_SNAPSHOT, ReportType.AYAR_ANALYSIS)
     }
     assert len(set(keys.values())) == 2
-    assert all("|1.1" in k for k in keys.values())
+    assert all("|1.2" in k for k in keys.values())
 
 
 def test_model_version_bump_does_not_rewrite_history(repo, settings, snapshot):

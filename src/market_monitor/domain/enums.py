@@ -14,6 +14,9 @@ class Instrument(StrEnum):
     EUR_IRT = "eur_irt"
     TRY_IRT = "try_irt"
     JPY_IRT = "jpy_irt"
+    # v1.2. Domestic pure-gold price, the denominator of the published coin
+    # premium (docs/FORMULAS.md). Collected and analysed, not displayed.
+    GOLD_24K = "gold_24k"
 
 
 class Unit(StrEnum):
@@ -40,6 +43,7 @@ class Unit(StrEnum):
 CANONICAL_UNIT: dict[Instrument, Unit] = {
     Instrument.USD_IRR_FREE: Unit.TOMAN_PER_USD,
     Instrument.GOLD_18K: Unit.TOMAN_PER_GRAM,
+    Instrument.GOLD_24K: Unit.TOMAN_PER_GRAM,
     Instrument.XAU_USD: Unit.USD_PER_TROY_OUNCE,
     Instrument.EMAMI_COIN: Unit.TOMAN_PER_COIN,
     Instrument.AED_IRT: Unit.TOMAN_PER_AED,

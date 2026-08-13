@@ -83,16 +83,23 @@ Coin formula audited and left unchanged; the open economic question is EXTENSION
 ### Notes
 Found by hitting it during v1.1 dry-run validation; it silently created a private/ tree at the repo root. Fixed to honour the four-slash absolute form, with a regression test in test_database.py.
 
-## GAP-006 · coin premium is not independent of the USD/gold gap · OPEN
+## GAP-006 · coin premium is not independent of the USD/gold gap · DONE
 **Family:** coin,formula,premium,gold,economics,double-counting
 **Raised:** 2026-08-12
+**Closed:** 2026-08-13 (v1.2)
 **Summary:** coin_intrinsic values the coin's gold via xau x usd, so coin_premium_pct contains gold_gap_pct in full
 
 ### Phases
-- [ ] P1 — owner decides the intended economic meaning (see EXTENSIONS Q)
+- [x] P1 — owner decides the intended economic meaning (see EXTENSIONS Q)
+- [x] P2 — verify geram24 live; cross-check against TGJU's published coin bubble
+- [x] P3 — gold_24k instrument, domestic formula, migration 003, model bump to 1.2
+- [x] P4 — retire the old metric names, keep the world route as a stored non-public series
+- [x] P5 — docs: FORMULAS, CHANGELOG, README, PROVIDERS, BACKTESTING, pinned message
 
 ### Notes
 Measured 2026-08-12: -2.34% via the world route vs +1.09% against domestic 18K gold, differing by exactly the 3.43% gold gap. Formula deliberately unchanged in v1.1 — changing it is an economic decision, not a bug fix.
+
+Resolved 2026-08-13: owner chose the domestic denominator. TGJU's own `sekee_real` agrees with our domestic figure to 0.001%, which also validates the coin constants independently. `geram24` turned out to be derived from `geram18` (0.0007% apart), so the fallback is equivalent and the preference is about directness only.
 
 ## GAP-007 · session close is one configured hour, not a Tehran trading calendar · OPEN
 **Family:** session,calendar,alignment,gate,tehran

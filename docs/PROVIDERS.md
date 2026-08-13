@@ -14,6 +14,7 @@ has changed symbol behaviour before.
 |---|---|---|---|---|
 | `usd_irr_free` | `price_dollar_rl` | `current.price_dollar_rl.p` | **rial (IRR)** | **÷ 10** |
 | `gold_18k` | `geram18` | `current.geram18.p` | **rial (IRR)** | **÷ 10** |
+| `gold_24k` | `geram24` | `current.geram24.p` | **rial (IRR)** | **÷ 10** |
 | `xau_usd` | `ons` | `current.ons.p` | **USD / troy ounce** | none |
 | `emami_coin` | `sekee` | `current.sekee.p` | **rial (IRR)** | **÷ 10** |
 | `aed_irt` | `price_aed` | `current.price_aed.p` | **rial (IRR)** | **÷ 10** |
@@ -21,8 +22,20 @@ has changed symbol behaviour before.
 | `try_irt` | `price_try` | `current.price_try.p` | **rial (IRR)** | **÷ 10** |
 | `jpy_irt` | `price_jpy` | `current.price_jpy.p` | **rial per 100 JPY** | **÷ 10 then ÷ 100** |
 
-Primary endpoint is `https://call1.tgju.org/ajax.json` for all eight. The four FX symbols
-were verified live on 2026-08-12 alongside the original four.
+Primary endpoint is `https://call1.tgju.org/ajax.json` for all nine. The four FX symbols
+were verified live on 2026-08-12 alongside the original four; `geram24` on 2026-08-13.
+
+> **`geram24` is derived, not independent.** It tracks `geram18 / 0.75` to within
+> **0.0007%** — TGJU computes one from the other. It is the preferred denominator for the
+> coin premium because it is *direct*, not because it is a second opinion. Never treat the
+> two as separate observations of the domestic gold price.
+
+**Symbols we read but do not collect.** `current.sekee_real.p` is TGJU's own intrinsic
+value for `sekee` (rial, ÷10). It equals `geram24 × 7.3197`, and our
+`coin_intrinsic_domestic` reproduces it to 0.001% — the cross-check recorded in
+`docs/FORMULAS.md`. It is deliberately **not** an instrument: it is TGJU's derived output,
+not a raw observation, and the project computes its own analysis (§31). The agreement is
+pinned by a fixture test rather than re-fetched on every run.
 
 > **The 10x trap.** TGJU quotes all Iranian instruments in **rial**, while Iranian users,
 > news sites and everyday speech quote **toman**. Publishing the raw number as toman is a

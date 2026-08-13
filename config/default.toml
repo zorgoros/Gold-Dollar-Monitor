@@ -5,7 +5,7 @@
 # settings system: the Telegram side is publish-only, so anything an operator is
 # meant to change is here and nowhere else.
 
-model_version = "1.1"
+model_version = "1.2"
 timezone = "Asia/Tehran"
 
 [analysis]
@@ -42,6 +42,7 @@ aed_irt = 20
 eur_irt = 20
 try_irt = 20
 jpy_irt = 20
+gold_24k = 20
 # Widest spread allowed between the oldest and newest quote in one snapshot.
 snapshot_window_minutes = 15
 # Widest spread allowed between the Tehran-session inputs feeding one analysis.
@@ -58,7 +59,7 @@ max_jump_pct = 25.0
 # the one thing that cannot be back-filled is a price nobody stored.
 [instruments]
 mandatory = ["usd_irr_free", "gold_18k", "xau_usd"]
-optional = ["emami_coin", "aed_irt", "eur_irt", "try_irt", "jpy_irt"]
+optional = ["emami_coin", "aed_irt", "eur_irt", "try_irt", "jpy_irt", "gold_24k"]
 # Staleness or absence here blocks Ayar Analysis.
 analysis_required = ["usd_irr_free", "gold_18k", "xau_usd"]
 # Contributes a section when present; drops that section when not. Never blocks.
@@ -80,6 +81,8 @@ primary = "tgju"
 [providers.try_irt]
 primary = "tgju"
 [providers.jpy_irt]
+primary = "tgju"
+[providers.gold_24k]
 primary = "tgju"
 
 # What the public Market Snapshot board shows, in display order. Removing an

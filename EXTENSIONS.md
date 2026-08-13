@@ -51,7 +51,7 @@ template above when it is picked up for research.
 | N. Mobile/PWA | LOW | Installable dashboard |
 | O. USDT analytical reference | MEDIUM | A third implied-USD route, from a market that never closes — full entry below |
 | P. Composite USD reference | LOW | Blending the implied rates into one number, *after* the research in R proves a weighting — full entry below |
-| Q. Coin premium against domestic gold | MEDIUM | The current premium inherits the USD/gold gap; a domestic-gold denominator would not — full entry below |
+| Q. Coin premium against domestic gold | MEDIUM | ~~The premium inherits the USD/gold gap~~ **shipped in v1.2** — full entry below |
 | R. Cross-market lead/lag research | HIGH | Which implied rate moves first, and whether divergence predicts anything — full entry below |
 | S. Statistical divergence thresholds | HIGH | Percentiles and z-scores per gap series, replacing the provisional bands (extends G to the AED gap) |
 | T. Volatility-regime analysis | LOW | Whether gap behaviour differs by regime; a precondition for trusting any threshold |
@@ -155,35 +155,43 @@ caveat.
 
 ## Extension: Coin premium against domestic gold
 
-Status: RESEARCH
+Status: **DONE** (v1.2, 2026-08-13)
 Priority: MEDIUM
-Target version: —
-Dependencies: none technically; it is an economic decision
-Core changes required: an alternative denominator in `emami_coin_intrinsic`, or
-a second metric alongside it
-Backward compatibility: **breaking for the coin series** — `coin_premium_pct`
-would change meaning, so it needs a new metric name and a model version bump
+Target version: 1.2
+Dependencies: none technically; it was an economic decision
+Core changes required: `gold_24k` instrument, `pure_gold_toman_per_gram` and
+`emami_coin_intrinsic_domestic` formulas, two new metric names, migration 003
+Backward compatibility: additive. `coin_premium_pct` and `coin_intrinsic` were
+**retired, not redefined** — rows carrying them are model version 1.1 or earlier
+and keep their original meaning
 
-Description: `coin_intrinsic` currently values the coin's gold through
-`xau_usd × usd_market`, i.e. through the theoretical domestic gold price. It
-therefore inherits `gold_gap_pct` in full. Measured on 2026-08-12 the coin read
-**−2.34%** against the world route and **+1.09%** against the domestic 18K
-price — a 3.43% difference, exactly the gold gap. See the audit in
-`docs/FORMULAS.md`.
+Description: `coin_intrinsic` valued the coin's gold through `xau_usd ×
+usd_market`, i.e. through the theoretical domestic gold price, and therefore
+inherited `gold_gap_pct` in full. The published premium is now measured against
+`geram24`, TGJU's direct domestic pure-gold quote, with `geram18 / 0.75` as an
+equivalent fallback.
 
-Why it may be useful: a premium against the *domestic* gold price is what
-Iranian market participants mean by حباب, is independent of the USD/gold
-divergence already reported one section above, and cannot produce the
-implausible reading of a minted coin trading below its own metal content.
+Resolution of the open questions:
 
-Open questions: which denominator — `geram18` scaled to pure, or `geram24`?
-Should both be published (one measuring the coin, one measuring gold-plus-coin
-together)? Does changing it break the comparability of the stored series, and
-is a parallel series for a transition period worth the complexity?
+- **Which denominator** — `geram24`, because it is direct. It is *derived* from
+  `geram18` (they agree to 0.0007%), so the fallback is equivalent rather than
+  degraded; the preference buys one fewer assumption, not more accuracy.
+- **Publish both?** No. The world route is computed and stored as
+  `coin_premium_world_pct` but never rendered — printed beside the gold section
+  it restates `gold_gap_pct`, which is the defect that prompted the change.
+- **Comparability** — handled by retiring the old names and bumping
+  `model_version` to 1.2, not by a parallel transition series. `docs/BACKTESTING.md`
+  states the filter rule for anyone reading across the boundary.
 
-Acceptance criteria: an explicit decision on the economic meaning intended,
-recorded in `docs/FORMULAS.md`; a new metric name; a model version bump; the
-old series left intact.
+Acceptance criteria, all met: the economic meaning is recorded in
+`docs/FORMULAS.md` together with a cross-check against TGJU's own `sekee_real`
+(agreement to 0.001%, which also independently validates the coin constants);
+new metric names; model version bumped; the old series left intact.
+
+Follow-on, not committed: nothing here reads `gerami_blubber`, `nim_blubber`,
+`rob_blubber` or `sekeb_blubber` — TGJU's published bubbles for the other coin
+denominations. A multi-coin bubble board would be a display feature, and the
+same denominator question would need answering for each coin's own spec.
 
 ---
 

@@ -16,11 +16,21 @@ data, modular architecture, future widget/web/API expansion\
 
 ------------------------------------------------------------------------
 
-# 0. v1.1 deltas
+# 0. v1.1 / v1.2 deltas
 
-Shipped 2026-08-12. Everything below this section describes V1 and remains
-accurate except where noted here. Detail lives in the document that owns each
-subject — this section records the *decisions*, not the specifications.
+Shipped 2026-08-12 and 2026-08-13. Everything below this section describes V1
+and remains accurate except where noted here. Detail lives in the document that
+owns each subject — this section records the *decisions*, not the specifications.
+
+**v1.2 — the coin premium's denominator.** The published `حباب` is the premium
+over the *domestic* pure-gold value (`gold_24k`, fallback `gold_18k / 0.75`),
+not over the world ounce converted at the market dollar. The old denominator
+inherited `gold_gap_pct` in full, so the coin section restated the divergence
+§4 already warns about, and could print a coin trading below its own melt
+value. `coin_intrinsic` / `coin_premium_pct` are retired rather than redefined;
+the world route survives as the stored, never-published
+`coin_premium_world_pct`. Reasoning, the cross-check against TGJU's own
+`sekee_real`, and the remaining caveat: `docs/FORMULAS.md`.
 
 **Two public report types replace one.** `market_snapshot` is a price board;
 `ayar_analysis` is the cross-market read. Schedules default to 4/day and 2/day

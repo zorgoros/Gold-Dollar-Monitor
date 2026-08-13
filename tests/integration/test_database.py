@@ -12,7 +12,7 @@ from tests.conftest import AT
 
 def test_migrations_are_idempotent(tmp_path):
     conn = connect(tmp_path / "m.db")
-    assert migrate(conn) == ["001_initial", "002_fx_instruments"]
+    assert migrate(conn) == ["001_initial", "002_fx_instruments", "003_gold_24k"]
     assert migrate(conn) == []
     conn.close()
 

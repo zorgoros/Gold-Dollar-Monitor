@@ -4,9 +4,9 @@ Guidance for Claude Code (claude.ai/code) in this repository.
 
 ## State of the repository
 
-Shipped, at v1.1. Python 3.12+, `src/market_monitor/`, SQLite, `httpx` the only
+Shipped, at v1.2. Python 3.12+, `src/market_monitor/`, SQLite, `httpx` the only
 runtime dependency; cron schedules it. [ARCHITECTURE.md](ARCHITECTURE.md) is the
-spec — read the section you need, not the file: **v1.1 deltas §0**, formulas §4,
+spec — read the section you need, not the file: **v1.1/v1.2 deltas §0**, formulas §4,
 DB §10, tree §17, error taxonomy §24, non-goals §37.
 
 ```bash

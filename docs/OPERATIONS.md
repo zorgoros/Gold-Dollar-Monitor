@@ -132,9 +132,10 @@ Because `report_type` is part of the key, a snapshot and an analysis sharing a
 slot (13:00 and 21:00 by default) are two independent deliveries and neither
 suppresses the other.
 
-Bumping `model_version` changes every key, so a v1.1 report may publish into a
-slot a v1.0 report already used. Stored rows keep the version they were made
-under and are never rewritten.
+Bumping `model_version` changes every key, so a report may publish into a slot
+an earlier version already used — expect one extra message in the slots either
+side of a bump. Stored rows keep the version they were made under and are never
+rewritten.
 
 ## Backup and restore
 

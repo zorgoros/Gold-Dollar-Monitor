@@ -14,12 +14,13 @@ analytical indicator. Design: [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Status
 
-v1.1. 189 tests passing, `ruff` and `mypy --strict` clean. The full pipeline is
+v1.2. 193 tests passing, `ruff` and `mypy --strict` clean. The full pipeline is
 verified against live data in dry-run.
 
-v1.1 adds four FX instruments, a second independent USD reference from the
+v1.1 added four FX instruments, a second independent USD reference from the
 dirham market, and a publication gate that withholds the analysis rather than
-publishing a temporally incoherent one.
+publishing a temporally incoherent one. v1.2 moves the published coin premium
+onto a domestic gold denominator so it stops restating the USD/gold gap.
 
 ## Setup
 
@@ -114,9 +115,16 @@ usd_aed_implied      = aed_irt × USD_AED_PEG
 aed_usd_gap_pct      = (usd_market / usd_aed_implied − 1) × 100
 gold_18_theoretical  = xau_usd × usd_market / GOLD_18_CONVERSION
 gold_gap_pct         = (gold_18_market / gold_18_theoretical − 1) × 100
-coin_intrinsic       = (xau_usd × usd_market / TROY_OUNCE_GRAMS) × EMAMI_COIN_PURE_GRAMS
-coin_premium_pct     = (coin_market / coin_intrinsic − 1) × 100
+gold_pure_domestic       = gold_24k          (fallback: gold_18k / GOLD_18_PURITY)
+coin_intrinsic_domestic  = gold_pure_domestic × EMAMI_COIN_PURE_GRAMS
+coin_premium_domestic_pct = (coin_market / coin_intrinsic_domestic − 1) × 100
 ```
+
+The coin premium is measured against **domestic** gold — the حباب Iranian market
+participants mean. Valuing it through the world ounce instead makes it inherit
+`gold_gap_pct` in full, so it stops being independent evidence; that series is
+still computed as `coin_premium_world_pct` but is never published. The audit
+that settled this is in [docs/FORMULAS.md](docs/FORMULAS.md).
 
 Golden-vector tests check them against the worked example in ARCHITECTURE.md §15
 and against live figures captured on 2026-08-12.

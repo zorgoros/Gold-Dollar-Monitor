@@ -12,9 +12,11 @@ from ..domain.models import Metric, Signal, Snapshot
 from ..storage.repositories import Repository
 from .formulas import (
     aed_implied_usd,
-    emami_coin_intrinsic,
+    emami_coin_intrinsic_domestic,
+    emami_coin_intrinsic_world,
     gap_pct,
     gold_implied_usd,
+    pure_gold_toman_per_gram,
     theoretical_gold_18k,
 )
 from .session import XAU_METRIC, Alignment
@@ -40,8 +42,17 @@ GOLD_THEORETICAL = "gold_18_theoretical"
 GOLD_GAP = "gold_gap_pct"
 XAU = XAU_METRIC
 COIN_MARKET = "coin_market"
-COIN_INTRINSIC = "coin_intrinsic"
-COIN_PREMIUM = "coin_premium_pct"
+GOLD_PURE = "gold_pure_domestic"
+# v1.2 renamed the published coin series rather than changing what an existing
+# key means. `coin_intrinsic` / `coin_premium_pct` are retired: rows written
+# under them are model version 1.1 or earlier and stay valid on their own terms.
+COIN_INTRINSIC_DOMESTIC = "coin_intrinsic_domestic"
+COIN_PREMIUM_DOMESTIC = "coin_premium_domestic_pct"
+# Computed and stored, never published. It inherits `gold_gap_pct` in full, so
+# reading it beside the gold section double-counts one divergence
+# (docs/FORMULAS.md, docs/BACKTESTING.md).
+COIN_INTRINSIC_WORLD = "coin_intrinsic_world"
+COIN_PREMIUM_WORLD = "coin_premium_world_pct"
 
 # Display-and-history instruments (§13). Stored under their instrument symbol so
 # the raw series is queryable later even while nothing analytical reads it.
@@ -70,7 +81,9 @@ METRIC_UNITS: dict[str, str] = {
     GOLD_THEORETICAL: "toman/gram",
     XAU: "usd/troy_oz",
     COIN_MARKET: "toman/coin",
-    COIN_INTRINSIC: "toman/coin",
+    GOLD_PURE: "toman/gram",
+    COIN_INTRINSIC_DOMESTIC: "toman/coin",
+    COIN_INTRINSIC_WORLD: "toman/coin",
     Instrument.AED_IRT.value: "toman/aed",
     Instrument.EUR_IRT.value: "toman/eur",
     Instrument.TRY_IRT.value: "toman/try",
@@ -154,10 +167,17 @@ def analyze(
 
     coin = snapshot.value(Instrument.EMAMI_COIN)
     if coin is not None:
-        intrinsic = emami_coin_intrinsic(xau, usd)
+        # The published premium is against domestic gold; the world route is
+        # stored beside it as a separate, non-public series (§23, EXTENSIONS Q).
+        pure_gram = pure_gold_toman_per_gram(snapshot.value(Instrument.GOLD_24K), gold)
+        domestic = emami_coin_intrinsic_domestic(pure_gram)
+        world = emami_coin_intrinsic_world(xau, usd)
         metrics[COIN_MARKET] = coin
-        metrics[COIN_INTRINSIC] = intrinsic
-        metrics[COIN_PREMIUM] = gap_pct(coin, intrinsic)
+        metrics[GOLD_PURE] = pure_gram
+        metrics[COIN_INTRINSIC_DOMESTIC] = domestic
+        metrics[COIN_PREMIUM_DOMESTIC] = gap_pct(coin, domestic)
+        metrics[COIN_INTRINSIC_WORLD] = world
+        metrics[COIN_PREMIUM_WORLD] = gap_pct(coin, world)
 
     # Store what we do not yet analyse. Today these only reach the snapshot
     # board; the point is that the history exists when a cross-rate study wants
@@ -197,8 +217,8 @@ def analyze(
         ),
         gold_signal(metrics[GOLD_GAP], xau_dir, usd_dir, bands, now, degraded),
     ]
-    if COIN_PREMIUM in metrics:
-        signals.append(coin_signal(metrics[COIN_PREMIUM], bands, now, degraded))
+    if COIN_PREMIUM_DOMESTIC in metrics:
+        signals.append(coin_signal(metrics[COIN_PREMIUM_DOMESTIC], bands, now, degraded))
 
     return Analysis(
         snapshot=snapshot,

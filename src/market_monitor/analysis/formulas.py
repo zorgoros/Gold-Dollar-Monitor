@@ -15,6 +15,7 @@ from __future__ import annotations
 from ..domain.constants import (
     EMAMI_COIN_PURE_GRAMS,
     GOLD_18_CONVERSION,
+    GOLD_18_PURITY,
     TROY_OUNCE_GRAMS,
     USD_AED_PEG,
 )
@@ -62,11 +63,39 @@ def gap_pct(market: float, reference: float) -> float:
     return (m / r - 1.0) * 100.0
 
 
-def emami_coin_intrinsic(xau_usd: float, usd_market_toman: float) -> float:
-    """Gold content of one Emami coin valued at the world ounce and market USD.
+def pure_gold_toman_per_gram(gold_24k_toman: float | None, gold_18k_toman: float) -> float:
+    """Domestic price of one gram of pure gold.
 
-    Melt value only — it excludes the minting and demand premium that makes up
-    the coin's bubble, which is the point of comparing the two.
+    TGJU's `geram24` is the direct quote and the preferred input. It is itself
+    derived from `geram18` — the two agree to 0.0007% — so the 18K fallback is
+    *equivalent*, not degraded. It exists because a provider symbol can go
+    missing, not because it is worse.
+    """
+    if gold_24k_toman is not None:
+        return _positive("gold_24k", gold_24k_toman)
+    return _positive("gold_18k", gold_18k_toman) / GOLD_18_PURITY
+
+
+def emami_coin_intrinsic_domestic(pure_gold_toman_per_gram: float) -> float:
+    """Gold content of one Emami coin at the price gold actually trades at in Tehran.
+
+    This is the حباب Iranian market participants mean, and the number the report
+    publishes. It is independent of the USD/gold divergence stated one section
+    above, so coin and gold are two findings rather than one restated twice.
+
+    Verified against TGJU's own `sekee_real` to within 0.001% (docs/FORMULAS.md).
+    """
+    per_gram = _positive("pure_gold_per_gram", pure_gold_toman_per_gram)
+    return per_gram * EMAMI_COIN_PURE_GRAMS
+
+
+def emami_coin_intrinsic_world(xau_usd: float, usd_market_toman: float) -> float:
+    """The coin's gold valued through the world ounce at the market USD rate.
+
+    **Not published.** It inherits `gold_gap_pct` in full, which is what made it
+    read as a coin trading below its own metal content while the domestic route
+    read a normal positive premium. Kept as an analytical series because
+    "coin against world gold" is a real arbitrage measure — just not the حباب.
     """
     xau = _positive("xau_usd", xau_usd)
     usd = _positive("usd_market", usd_market_toman)

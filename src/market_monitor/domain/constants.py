@@ -32,6 +32,9 @@ PROJECT_NAME = "Gold-Dollar-Monitor"
 PROJECT_URL = "github.com/zorgoros/Gold-Dollar-Monitor"
 ATTRIBUTION = f"{PROJECT_NAME} · {PROJECT_URL}"
 
-FORMULA_VERSION = "1.1"
-SIGNAL_MODEL_VERSION = "1.1"
-REPORT_TEMPLATE_VERSION = "1.1"
+# 1.2 changes the meaning of the published coin premium: its denominator moved
+# from the world route to the domestic gold price (docs/FORMULAS.md). Every
+# number the system published under 1.1 keeps that tag and its old meaning.
+FORMULA_VERSION = "1.2"
+SIGNAL_MODEL_VERSION = "1.2"
+REPORT_TEMPLATE_VERSION = "1.2"

@@ -249,8 +249,8 @@ def render_analysis(analysis: Analysis, config: ReportConfig) -> str:
             "",
             "🪙 سکه امامی",
             f"بازار: {toman(metrics[engine.COIN_MARKET])}",
-            f"ارزش طلای سکه: {toman(metrics[engine.COIN_INTRINSIC])}",
-            f"حباب: {signed_pct(metrics[engine.COIN_PREMIUM])}",
+            f"ارزش طلای سکه: {toman(metrics[engine.COIN_INTRINSIC_DOMESTIC])}",
+            f"حباب: {signed_pct(metrics[engine.COIN_PREMIUM_DOMESTIC])}",
         ]
 
     implied_trends = analysis.trends.get(engine.USD_IMPLIED, {})

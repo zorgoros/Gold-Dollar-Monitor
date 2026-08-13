@@ -94,15 +94,34 @@ gold_18_theoretical = xau_usd × usd_market / GOLD_18_CONVERSION
 gold_gap_pct = (gold_18_market / gold_18_theoretical − 1) × 100
 ```
 
-**Coin premium** — market price against the value of the gold it contains:
+**Coin premium** — market price against the value of the gold it contains,
+priced where the coin is actually traded:
 
 ```
-coin_intrinsic  = (xau_usd × usd_market / TROY_OUNCE_GRAMS) × EMAMI_COIN_PURE_GRAMS
-coin_premium_pct = (coin_market / coin_intrinsic − 1) × 100
+gold_pure_domestic        = gold_24k          (fallback: gold_18k / GOLD_18_PURITY)
+coin_intrinsic_domestic   = gold_pure_domestic × EMAMI_COIN_PURE_GRAMS
+coin_premium_domestic_pct = (coin_market / coin_intrinsic_domestic − 1) × 100
 ```
 
 Reports say `ارزش طلای سکه` and `حباب`, never `ارزش ذاتی` — this is metal
 content, a narrower and more defensible claim than intrinsic worth.
+
+`geram24` is TGJU's direct pure-gold quote and the preferred input. It is
+itself derived from `geram18` — on 2026-08-11 the two agreed to **0.0007%** —
+so the 18K fallback is arithmetically *equivalent*, not degraded. It exists
+because a provider symbol can go missing, not because it is worse. `geram24` is
+preferred for being direct: one fewer assumption, and immune to TGJU changing
+how it defines its 18K series.
+
+The world-route calculation is retained as a non-public analytical series:
+
+```
+coin_intrinsic_world      = (xau_usd × usd_market / TROY_OUNCE_GRAMS) × EMAMI_COIN_PURE_GRAMS
+coin_premium_world_pct    = (coin_market / coin_intrinsic_world − 1) × 100
+```
+
+It is stored, never rendered, and never entered into a model beside
+`gold_gap_pct` or `usd_gap_pct` — see the audit below for why.
 
 ### Coin audit, 2026-08-12
 
@@ -132,8 +151,53 @@ looks**, and two limitations belong on the record:
    findings double-counts one divergence, the same trap §4 names for implied
    USD and theoretical gold.
 
-The formula is **unchanged in v1.1** — changing it is an economic decision, not
-a bug fix, and it is open (see the coin entry in `EXTENSIONS.md`).
+The formula was **unchanged in v1.1** — changing it is an economic decision, not
+a bug fix. That decision was taken for **v1.2**; the rest of this section
+records it.
+
+### Resolution, v1.2 — the denominator moved to domestic gold
+
+The published `حباب` now means *premium over the domestic gold value*. Two
+things settled it.
+
+**1. The sign was not merely imprecise, it was implausible.** −2.34% asserts
+that a minted, verified, freely resold coin trades below its own melt value —
+which would be an open arbitrage. It was never a statement about coins; it was
+`gold_gap_pct` wearing a disguise, one section below where the report had
+already stated it plainly.
+
+**2. TGJU publishes its own intrinsic coin value, and we match it.** The
+`sekee_real` symbol carries exactly this figure. Cross-checked at the
+2026-08-11 Tehran close:
+
+| | toman | vs `sekee_real` |
+|---|---|---|
+| TGJU `sekee_real` | 187,439,300 | — |
+| ours, `geram24 × 7.3197` | 187,437,754 | **−0.0008%** |
+| ours, `geram18 / 0.75 × 7.3197` | 187,438,974 | −0.0002% |
+| ours, world route | 193,486,527 | **+3.23%** |
+
+Agreeing to 0.001% is an independent check on `EMAMI_COIN_GRAMS` and
+`EMAMI_COIN_PURITY`, not just on the arithmetic: TGJU is using the same
+7.3197 g of fine gold. The resulting premium is **+1.09%** against either
+domestic route and **−2.07%** against the world route, the difference being the
+gold gap in full. The identity is pinned by a test:
+
+```
+(1 + premium_domestic) / (1 + premium_world) == 1 / (1 + gold_gap)
+```
+
+**What changed and what did not.** `coin_premium_pct` and `coin_intrinsic` are
+retired rather than redefined — rows written under those names are model version
+1.1 or earlier and remain valid on their own terms. The new series are
+`coin_premium_domestic_pct` (published) and `coin_premium_world_pct` (stored,
+not published). `model_version` moved to 1.2, which re-keys idempotency, so no
+1.1 report is overwritten.
+
+**The remaining caveat.** The 18K fallback assumes `geram18` is clean metal
+content; Iranian 18K retail pricing carries workmanship and dealer margin. That
+bias is smaller and more stable than a 3.4% FX gap, but it is not zero. With
+`geram24` present — the normal case — it does not arise.
 
 ## The inversion, stated once
 

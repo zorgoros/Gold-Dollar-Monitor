@@ -6,6 +6,8 @@ from market_monitor.analysis import engine
 from market_monitor.analysis.engine import analyze
 from market_monitor.domain.enums import Classification, Instrument
 from market_monitor.domain.models import Metric
+from market_monitor.reporting.formatter_fa import ReportConfig, render_analysis
+from market_monitor.reporting.models import widget_payload
 from tests.conftest import AT
 
 CONFIG = {
@@ -56,13 +58,35 @@ def test_trends_appear_once_history_exists(repo, snapshot):
 
 def test_coin_metrics_only_appear_when_the_coin_is_quoted(repo, snapshot):
     without = analyze(snapshot(), repo, CONFIG)
-    assert engine.COIN_PREMIUM not in without.metrics
+    assert engine.COIN_PREMIUM_DOMESTIC not in without.metrics
 
     with_coin = analyze(snapshot(coin=189_485_000.0), repo, CONFIG)
-    assert with_coin.metrics[engine.COIN_PREMIUM] == pytest.approx(
-        (189_485_000.0 / with_coin.metrics[engine.COIN_INTRINSIC] - 1) * 100
+    assert with_coin.metrics[engine.COIN_PREMIUM_DOMESTIC] == pytest.approx(
+        (189_485_000.0 / with_coin.metrics[engine.COIN_INTRINSIC_DOMESTIC] - 1) * 100
     )
     assert len(with_coin.signals) == 3
+
+
+def test_the_world_route_coin_series_is_computed_but_never_published(repo, snapshot):
+    """Stored for the lead/lag research, kept out of every reader-facing surface."""
+    result = analyze(snapshot(coin=189_485_000.0), repo, CONFIG)
+    assert engine.COIN_PREMIUM_WORLD in result.metrics
+    assert result.metrics[engine.COIN_PREMIUM_WORLD] != result.metrics[engine.COIN_PREMIUM_DOMESTIC]
+
+    report = render_analysis(
+        result, ReportConfig(fx=[Instrument.USD_IRR_FREE], metals=[Instrument.EMAMI_COIN])
+    )
+    assert "حباب" in report
+    for value in (
+        result.metrics[engine.COIN_PREMIUM_WORLD],
+        result.metrics[engine.COIN_INTRINSIC_WORLD],
+    ):
+        assert f"{value:,.0f}" not in report
+    assert all(
+        engine.COIN_PREMIUM_WORLD not in str(ref)
+        for card in widget_payload(result)
+        for ref in card.get("references", [])
+    )
 
 
 def test_metric_rows_carry_units_and_model_version(repo, snapshot):

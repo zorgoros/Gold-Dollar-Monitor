@@ -4,9 +4,11 @@ import pytest
 
 from market_monitor.analysis.formulas import (
     aed_implied_usd,
-    emami_coin_intrinsic,
+    emami_coin_intrinsic_domestic,
+    emami_coin_intrinsic_world,
     gap_pct,
     gold_implied_usd,
+    pure_gold_toman_per_gram,
     theoretical_gold_18k,
 )
 from market_monitor.domain.constants import (
@@ -117,25 +119,63 @@ def test_coin_constants_match_the_bahar_azadi_specification():
     assert EMAMI_COIN_PURE_GRAMS == pytest.approx(7.3197, abs=1e-4)
 
 
-def test_coin_value_is_its_fine_gold_content_at_the_market_rate():
+def test_world_route_coin_value_is_its_fine_gold_content_at_the_market_rate():
     """Recomputed independently of the implementation, from first principles."""
     expected = (XAU * USD_MARKET / 31.1034768) * (8.133 * 0.900)
-    assert emami_coin_intrinsic(XAU, USD_MARKET) == pytest.approx(expected, rel=1e-12)
+    assert emami_coin_intrinsic_world(XAU, USD_MARKET) == pytest.approx(expected, rel=1e-12)
 
 
-def test_coin_value_scales_linearly_with_both_inputs():
-    base = emami_coin_intrinsic(XAU, USD_MARKET)
-    assert emami_coin_intrinsic(XAU * 2, USD_MARKET) == pytest.approx(base * 2)
-    assert emami_coin_intrinsic(XAU, USD_MARKET * 2) == pytest.approx(base * 2)
+def test_world_route_coin_value_scales_linearly_with_both_inputs():
+    base = emami_coin_intrinsic_world(XAU, USD_MARKET)
+    assert emami_coin_intrinsic_world(XAU * 2, USD_MARKET) == pytest.approx(base * 2)
+    assert emami_coin_intrinsic_world(XAU, USD_MARKET * 2) == pytest.approx(base * 2)
 
 
-def test_coin_premium_against_the_live_market_is_plausible():
-    """Live 2026-08-12: coin 189,485,000 against ~195.0M of gold content.
+def test_pure_gold_prefers_the_direct_24k_quote():
+    assert pure_gold_toman_per_gram(25_607_300.0, 19_205_600.0) == 25_607_300.0
 
-    The negative premium is real and is a *temporal* artifact, not a formula
-    error — `sekee` was yesterday's Tehran close while `ons` was live. It is the
-    exact defect analysis/session.py refuses to publish (docs/FORMULAS.md).
+
+def test_pure_gold_falls_back_to_18k_scaled_and_the_two_agree():
+    """TGJU derives geram24 from geram18, so the fallback is equivalent, not worse.
+
+    Live 2026-08-11 close: they differ by 0.0007%. If this ever widens, TGJU has
+    changed how it defines one of the two and the fallback needs revisiting.
     """
-    intrinsic = emami_coin_intrinsic(4_412.73, 187_800.0)
-    assert intrinsic == pytest.approx(195_023_653.0, rel=1e-4)
-    assert gap_pct(189_485_000.0, intrinsic) == pytest.approx(-2.84, abs=0.05)
+    direct = 25_607_300.0
+    fallback = pure_gold_toman_per_gram(None, 19_205_600.0)
+    assert fallback == pytest.approx(direct, rel=1e-4)
+
+
+def test_domestic_coin_value_matches_tgju_published_intrinsic():
+    """Cross-check against TGJU's own `sekee_real`, 2026-08-11 close.
+
+    They publish 187,439,300 toman for the same coin. Agreeing to 0.001% means
+    TGJU uses the same 7.3197 g of fine gold we do — an independent check on
+    EMAMI_COIN_GRAMS and EMAMI_COIN_PURITY, not just on the arithmetic.
+    """
+    tgju_sekee_real = 187_439_300.0
+    ours = emami_coin_intrinsic_domestic(25_607_300.0)
+    assert ours == pytest.approx(tgju_sekee_real, rel=1e-4)
+
+
+def test_domestic_and_world_premiums_differ_by_exactly_the_gold_gap():
+    """The reason the published denominator changed in v1.2 (EXTENSIONS Q).
+
+    Same coin, same instant, opposite sign: +1.09% domestic, -2.07% world. The
+    difference is `gold_gap_pct` in full, which is why the world route was never
+    independent evidence and is no longer published.
+    """
+    coin, gold_18k, xau, usd = 189_485_000.0, 19_205_600.0, 4_396.28, 187_800.0
+
+    domestic = gap_pct(
+        coin, emami_coin_intrinsic_domestic(pure_gold_toman_per_gram(None, gold_18k))
+    )
+    world = gap_pct(coin, emami_coin_intrinsic_world(xau, usd))
+    gold_gap = gap_pct(gold_18k, theoretical_gold_18k(xau, usd))
+
+    assert domestic > 0 > world
+    # The identity, exactly: (1+domestic) / (1+world) == 1 / (1+gold_gap).
+    # Both premiums share the numerator, so their ratio is the ratio of the two
+    # gold prices — which *is* the gold gap. Nothing else is in there.
+    ratio = (1 + domestic / 100) / (1 + world / 100)
+    assert ratio * (1 + gold_gap / 100) == pytest.approx(1.0, abs=1e-12)

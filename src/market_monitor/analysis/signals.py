@@ -222,10 +222,14 @@ def gold_signal(
 def coin_signal(
     premium_pct: float, bands: Bands, generated_at: datetime, degraded: bool = False
 ) -> Signal:
-    """Coin against the value of the gold it contains. Normally a positive premium.
+    """Coin against the value of the gold it contains, priced domestically.
 
     "ارزش طلای سکه", never "ارزش ذاتی" (§22) — this is metal content, which is a
     narrower and more defensible claim than intrinsic worth.
+
+    The denominator is the Tehran pure-gold price, so a negative reading now
+    means the coin genuinely trades under its metal — worth saying, and rare.
+    Under the v1.1 world route it merely meant the gold gap was wide.
     """
     summary = (
         f"حباب سکه نسبت به ارزش طلای آن حدود {premium_pct:.1f} درصد است."
@@ -239,7 +243,7 @@ def coin_signal(
         confidence=_confidence(False, degraded),
         summary_fa=summary,
         reason_codes=[ReasonCode.STALE_SOURCE] if degraded else [],
-        metrics_used={"coin_premium_pct": round(premium_pct, 4)},
+        metrics_used={"coin_premium_domestic_pct": round(premium_pct, 4)},
         generated_at=generated_at,
         model_version=SIGNAL_MODEL_VERSION,
     )

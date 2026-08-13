@@ -42,6 +42,7 @@ FALLBACK_URL = "https://call3.tgju.org/ajax.json"
 SYMBOLS: dict[Instrument, tuple[str, Unit]] = {
     Instrument.USD_IRR_FREE: ("price_dollar_rl", Unit.RIAL_PER_USD),
     Instrument.GOLD_18K: ("geram18", Unit.RIAL_PER_GRAM),
+    Instrument.GOLD_24K: ("geram24", Unit.RIAL_PER_GRAM),
     Instrument.XAU_USD: ("ons", Unit.USD_PER_TROY_OUNCE),
     Instrument.EMAMI_COIN: ("sekee", Unit.RIAL_PER_COIN),
     Instrument.AED_IRT: ("price_aed", Unit.RIAL_PER_AED),

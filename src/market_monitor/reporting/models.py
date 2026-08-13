@@ -37,7 +37,9 @@ _REFERENCES: dict[str, list[tuple[str, str, str]]] = {
         ("aed", engine.USD_AED_IMPLIED, engine.AED_GAP),
     ],
     "GOLD_18K": [("theoretical", engine.GOLD_THEORETICAL, engine.GOLD_GAP)],
-    "EMAMI_COIN": [("metal_content", engine.COIN_INTRINSIC, engine.COIN_PREMIUM)],
+    # Domestic only. The world-route series exists in `metrics` but is not a
+    # card reference: shown beside the gold card it would restate the gold gap.
+    "EMAMI_COIN": [("metal_content", engine.COIN_INTRINSIC_DOMESTIC, engine.COIN_PREMIUM_DOMESTIC)],
 }
 
 
