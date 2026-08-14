@@ -60,3 +60,8 @@ Blocked: coin formula question open with the owner (EXTENSIONS Q) — formula le
 Did: resolved the 403 (two channels with near-identical names; .env pointed at the one the bot was not in — now the numeric id); v1.1 committed and merged to main; v1.2 shipped: coin premium moved to a domestic gold denominator, gold_24k instrument, world route retired to a non-public series, migration 003 applied to prod db; 193 tests green; cross-checked against TGJU sekee_real to 0.001%
 Next: pin the updated Persian message; decide whether `market-monitor health` should call Telegram live; watch the first post-bump slot for the expected duplicate-key extra message
 Blocked: none — footer channel line stays absent until the channel has a public handle (§24)
+
+## 2026-08-14 · claude-solo
+Did: recorded ten owner ideas in EXTENSIONS.md as Y–AG plus a full entry expanding seeded L (dashboard mode, publishing modes, archive policy, on-demand history, per-destination config, personal chat, refresh/change engine, entitlements, deterministic state machine, AI commentary); all IDEA status, nothing implemented; added a family note under the seeded table
+Next: owner triage — approve/reject individually; AC (destination registry) is the root dependency for the delivery family, AG is blocked on F/G/R
+Blocked: none
