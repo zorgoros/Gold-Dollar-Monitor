@@ -45,7 +45,7 @@ market-monitor db-info              # row counts and latest snapshot
 
 ```bash
 python -m pytest
-ruff check src tests && ruff format --check src tests && mypy src
+ruff check src tests scripts && ruff format --check src tests scripts && mypy src
 ```
 
 ---

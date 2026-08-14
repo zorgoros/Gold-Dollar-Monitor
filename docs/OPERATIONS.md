@@ -1,5 +1,57 @@
 # Operations
 
+## Deploy (GitHub Actions — no server)
+
+The default. `.github/workflows/collect.yml` runs the same `run-once` the cron
+file would, on GitHub's runners, at the union of the configured slots. Standard
+runners are free without a minute cap on public repositories.
+
+Two secrets, set once — the values never enter the repository:
+
+```bash
+gh secret set TELEGRAM_BOT_TOKEN
+gh secret set TELEGRAM_CHANNEL_ID
+```
+
+Then trigger it by hand before trusting the schedule:
+
+```bash
+gh workflow run collect.yml -f dry_run=true    # renders, sends nothing
+gh workflow run collect.yml                    # publishes for real
+```
+
+### Where the database lives
+
+On the orphan **`market-data`** branch, not on `main`. A SQLite file does not
+delta, so a commit per run would bury a fresh copy of a growing binary in
+`main`'s history four times a day — roughly 1,500 copies a year, removable only
+by a `git filter-repo` rewrite that breaks every clone. The branch instead holds
+exactly one commit, amended and force-pushed each run, and retiring it is:
+
+```bash
+git push origin --delete market-data
+```
+
+The runner has no persistent disk, so each job fetches that branch into `_data/`,
+points `DATABASE_URL` at it, and pushes it back. The push runs even when the
+pipeline step fails: raw observations are stored before anything derives from
+them, and a dropped collection is the one loss that cannot be back-filled.
+
+`scripts/scan_db_for_secrets.py` runs between the two and fails the job rather
+than publish a database containing anything credential-shaped. The branch is
+pushed unattended to a public repository, so this is checked, not assumed.
+
+### Known behaviour
+
+- **Scheduled runs are late**, routinely by 5–20 minutes under load. Absorbed by
+  `[schedule].slot_tolerance_minutes = 90`, which is why it is that wide.
+- **Cron here is UTC.** `30 5,9,13,17` is 09:00/13:00/17:00/21:00 Tehran. Iran
+  abolished DST in 2022, so the +3:30 offset holds year-round. Changing
+  `[schedule]` means changing this cron in the same edit.
+- **GitHub disables schedules after 60 days of repository inactivity.** The
+  per-run push to `market-data` counts as activity, so this only bites if
+  collection is already broken.
+
 ## Deploy (VPS, no Docker)
 
 ```bash

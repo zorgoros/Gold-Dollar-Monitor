@@ -1,6 +1,10 @@
 # /etc/cron.d/market-monitor
 # Must fire at the UNION of [schedule].snapshot and [schedule].analysis in
 # config/default.toml. One run publishes whichever slots the time matches.
+#
+# For the VPS deployment. The default deployment is GitHub Actions and lives in
+# .github/workflows/collect.yml — the same schedule in UTC. Run one or the
+# other, never both: they would collide on the report idempotency key.
 CRON_TZ=Asia/Tehran
 SHELL=/bin/bash
 

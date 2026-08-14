@@ -14,8 +14,8 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -e ".[dev]"
-      - run: ruff check src tests
-      - run: ruff format --check src tests
+      - run: ruff check src tests scripts
+      - run: ruff format --check src tests scripts
       - run: mypy src
       # Tests run against captured fixtures — no network, no secrets needed,
       # so this job stays safe to run on untrusted pull requests.

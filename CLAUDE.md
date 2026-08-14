@@ -11,7 +11,7 @@ DB §10, tree §17, error taxonomy §24, non-goals §37.
 
 ```bash
 python -m pytest                                     # all; -k or ::name for one
-ruff check src tests && ruff format --check src tests && mypy src
+ruff check src tests scripts && ruff format --check src tests scripts && mypy src
 market-monitor run-once --dry-run                    # full pipeline, never sends
 market-monitor report --dry-run --type analysis      # force one report type
 market-monitor config                                # effective settings

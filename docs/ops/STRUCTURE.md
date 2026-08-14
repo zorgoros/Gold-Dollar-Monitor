@@ -22,17 +22,21 @@ exist yet; create them when the phase that needs them lands (§35), not before.
 | `config/` | `default.toml` — thresholds, schedules, display, footer | secrets, `.env` |
 | `migrations/` | forward schema migrations | hand-applied SQL |
 | `tests/unit/` `tests/integration/` `tests/fixtures/` | tests and captured provider payloads | live network calls |
-| `scripts/` | bootstrap, backup, one-shot import | anything imported by `src/` |
+| `scripts/` | bootstrap, backup, one-shot import, pre-push guards | anything imported by `src/` |
 | `deploy/` | Dockerfile, compose, systemd, cron | application code |
 | `docs/` | FORMULAS, PROVIDERS, OPERATIONS, BACKTESTING | code |
 | `docs/ops/` | LEDGER, HANDOFF, MEMORY, this file | anything else |
 | `data/` | the SQLite database — gitignored | anything tracked |
 | `logs/` | run and backup output — gitignored | anything tracked |
-| `.github/workflows/` | CI definitions | anything needing a secret to run |
+| `.github/workflows/` | CI, and the scheduled collector | a secret's *value* — only `secrets.*` references |
 
 Root holds only: `README.md`, `ARCHITECTURE.md`, `EXTENSIONS.md`,
 `CHANGELOG.md`, `LICENSE`, `CLAUDE.md`, `AGENTS.md`, `.env.example`,
 `.gitignore`, `pyproject.toml`, the lock file, and an optional `Makefile`.
+
+**Branches.** `main` is the code. `market-data` is an orphan branch holding only
+the SQLite database, kept to a single commit — never merge it, never branch off
+it. Why it exists and how it is written: `docs/OPERATIONS.md`.
 
 ## Rules
 

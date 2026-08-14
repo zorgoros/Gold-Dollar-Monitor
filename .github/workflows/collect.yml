@@ -1,0 +1,104 @@
+# Scheduled collection and publication (docs/OPERATIONS.md).
+#
+# This is the cron in deploy/cron/market-monitor.cron, run on GitHub's
+# infrastructure instead of a VPS. It must fire at the UNION of
+# [schedule].snapshot and [schedule].analysis in config/default.toml.
+#
+# The database lives on the orphan `market-data` branch, not on `main`: a
+# SQLite file does not delta, so committing it here would bury ~1,500 copies of
+# a growing binary in main's history every year. The branch is kept to a single
+# commit by amending, and retiring it later is a branch deletion rather than a
+# history rewrite.
+name: collect
+
+on:
+  schedule:
+    # 05:30 09:30 13:30 17:30 UTC = 09:00 13:00 17:00 21:00 Asia/Tehran.
+    # Iran abolished DST in 2022, so the +3:30 offset holds year-round.
+    # GitHub's scheduler is best-effort and often runs late; that is absorbed by
+    # [schedule].slot_tolerance_minutes = 90, which is why it is set that wide.
+    - cron: "30 5,9,13,17 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Render but never send to Telegram"
+        type: boolean
+        default: false
+
+# Runs force-push the same branch. Never let two overlap.
+concurrency:
+  group: market-data
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      TZ: Asia/Tehran
+      DATA_DIR: ${{ github.workspace }}/_data
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -e .
+
+      - name: Fetch the database
+        run: |
+          mkdir -p "$DATA_DIR" && cd "$DATA_DIR"
+          git init -q -b market-data
+          git config user.name  "market-monitor[bot]"
+          git config user.email "market-monitor@users.noreply.github.com"
+          git remote add origin \
+            "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git"
+          if git fetch -q --depth 1 origin market-data 2>/dev/null; then
+            git reset -q --hard FETCH_HEAD
+            echo "restored $(du -h market.db | cut -f1) database"
+          else
+            echo "no market-data branch yet — starting a fresh database"
+          fi
+
+      # Raw observations are stored before anything is derived from them, so a
+      # gated report or a Telegram outage still leaves the quotes on disk. That
+      # is why this step does not gate the push below: a dropped collection is
+      # the one loss that cannot be back-filled.
+      - name: Run the pipeline
+        env:
+          DATABASE_URL: sqlite:///${{ github.workspace }}/_data/market.db
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHANNEL_ID: ${{ secrets.TELEGRAM_CHANNEL_ID }}
+          APP_ENV: production
+        run: |
+          market-monitor run-once ${{ inputs.dry_run && '--dry-run' || '' }}
+
+      # The repository is public and this branch is pushed unattended, so the
+      # database is checked rather than assumed. A publisher bug that logged a
+      # credential into job_runs would be caught here, before it is published.
+      - name: Refuse to push a database containing credentials
+        id: scan
+        if: always()
+        run: python scripts/scan_db_for_secrets.py "$DATA_DIR/market.db"
+
+      - name: Publish the database
+        if: always() && steps.scan.outcome == 'success'
+        working-directory: ${{ github.workspace }}/_data
+        run: |
+          git add -A
+          if git diff --cached --quiet; then
+            echo "nothing changed"; exit 0
+          fi
+          # One commit, always: amend the existing tip rather than stacking a
+          # new copy of the binary onto it. Safe to force — the concurrency
+          # group above guarantees this job is the only writer.
+          if git rev-parse -q --verify HEAD >/dev/null; then
+            git commit -q --amend -m "data: $(date -u +%FT%TZ)"
+          else
+            git commit -q -m "data: $(date -u +%FT%TZ)"
+          fi
+          git push -q --force origin market-data
