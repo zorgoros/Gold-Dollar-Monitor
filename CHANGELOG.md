@@ -1,5 +1,68 @@
 # Changelog
 
+## 1.2.1 — 2026-08-15
+
+No formula changed, no indicator was added, and no report gained a section.
+`model_version` stays **1.2**: nothing here alters a computed number, so bumping
+it would fragment history for a wording and scheduling change. v1.2 is the frozen
+analytical baseline; this release is about collecting more of it and reading it
+more easily.
+
+**Collection, publication, and message update are three frequencies**
+- Collection moves to every 30 minutes, 08:30–21:00 Tehran
+  (`0,30 5-17` UTC in `collect.yml`). Publication is unchanged at 4 snapshots
+  and 2 analyses a day.
+- Raising one did not raise the other, and that is structural, not incidental:
+  off-slot runs get an `adhoc` key and publish nothing, and a second run inside
+  one slot is refused by the delivered-key index. A test walks the real cron
+  through the shipped config and asserts 26 runs still produce 6 messages.
+- `[schedule].slot_tolerance_minutes` 90 → **20**. It has to stay under the
+  collection interval or the run before a slot claims it and posts early. 90 was
+  right when a missed run meant a missed report; the next attempt is now 30
+  minutes away.
+- Message update — editing a published report rather than sending a new one — is
+  deliberately not built. `reports.telegram_message_id` is already recorded and
+  still unread; `EXTENSIONS.md` AE and Y own that work.
+
+**Two data-integrity fixes, shipped before the frequency change**
+- `git fetch` failing was indistinguishable from the `market-data` branch not
+  existing, so a transient network error would build a fresh database and
+  force-push it over the entire dataset — irrecoverable, the branch being a
+  single amended commit. The fetch step now asks `git ls-remote --exit-code`
+  which case it is in and fails the job on anything that is not a genuinely
+  absent branch.
+- New `scripts/guard_db_growth.py` refuses to push a database holding fewer rows
+  than the one fetched. The observation tables only ever grow.
+
+**"Change since the last report" now means it**
+- It was computed from the previous stored metrics row — correct only while
+  collection and publication shared a cron. At 30-minute collection that would
+  have reported the last half hour under a label promising the last report.
+- `Repository.published_baseline` reads the metrics behind the last *delivered*
+  report of that type. A gated delivery showed no numbers so it is skipped; no
+  baseline at all drops the section rather than inventing a zero.
+
+**Presentation**
+- `↕ تغییر از گزارش قبل` → `↕ تغییر از آخرین گزارش`, and the section is dropped
+  entirely when every move rounds to ±0.00%.
+- Standalone monetary values in Ayar Analysis carry `تومان` explicitly.
+- The gold section names its own construction: `نظری بر مبنای دلار بازار`, with
+  `(همان واگرایی دلار/طلا از سمت طلا)` so the gap is not counted as second
+  evidence for what the dollar section already said.
+- `📈 روند نرخ ضمنی دلار` → `📈 روند نرخ ضمنی دلار از طلا`, the report now
+  carrying an AED-implied dollar too.
+- The AED reading no longer says the dirham `تأیید می‌کند` the dollar. It states
+  two distances; confirmation is a claim about a backtested signal, and no
+  backtest exists yet.
+- One clock in the status block: `🔄 آخرین به‌روزرسانی: HH:MM`, from the
+  observation instant rather than the scheduler's. It replaces the time that used
+  to ride on the freshness line instead of joining it.
+
+**Operations**: the 60-day scheduled-workflow disable is documented honestly —
+whether the unattended push to `market-data` counts as repository activity is
+undocumented, no synthetic keepalive was added, and GitHub's notification email
+is the signal to re-enable.
+
 ## 1.2.0 — 2026-08-13
 
 Formula version 1.2, signal model 1.2, report template 1.2. One change, to what

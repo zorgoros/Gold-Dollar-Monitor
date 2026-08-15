@@ -26,7 +26,7 @@ from market_monitor.reporting.formatter_fa import (
     trend_line,
 )
 from market_monitor.reporting.models import widget_payload
-from tests.conftest import AT
+from tests.conftest import AT, publish_baseline
 from tests.integration.test_engine import CONFIG
 
 CONFIG_FA = ReportConfig(
@@ -88,20 +88,64 @@ def test_display_config_does_not_change_what_is_analysed(repo, snapshot):
 
 
 def test_snapshot_prints_change_since_the_previous_report(repo, snapshot):
-    sid = repo.save_snapshot(snapshot())
-    repo.save_metrics(
-        sid,
-        [Metric(engine.USD_MARKET, 180_000.0, "toman/usd", "1.1")],
-        AT - timedelta(hours=4),
-    )
+    publish_baseline(repo, snapshot(), {engine.USD_MARKET: 180_000.0}, AT - timedelta(hours=4))
     text = render_snapshot(analyze(snapshot(), repo, CONFIG), CONFIG_FA)
-    assert "↕ تغییر از گزارش قبل" in text
+    assert "↕ تغییر از آخرین گزارش" in text
     assert "دلار +3.00%" in text
 
 
 def test_change_section_disappears_when_there_is_no_previous_report(repo, snapshot):
     text = render_snapshot(analyze(snapshot(), repo, CONFIG), CONFIG_FA)
-    assert "↕ تغییر از گزارش قبل" not in text
+    assert "↕ تغییر از آخرین گزارش" not in text
+
+
+def test_a_flat_market_drops_the_change_section_rather_than_printing_zeroes(repo, snapshot):
+    """§2: three lines of ±0.00% are noise, not information."""
+    publish_baseline(
+        repo,
+        snapshot(),
+        {
+            engine.USD_MARKET: 185_400.0,
+            engine.GOLD_MARKET: 19_150_000.0,
+            engine.COIN_MARKET: 189_485_000.0,
+        },
+        AT - timedelta(hours=4),
+    )
+    text = render_snapshot(analyze(snapshot(coin=True), repo, CONFIG), CONFIG_FA)
+    assert "↕ تغییر از آخرین گزارش" not in text
+    assert "0.00%" not in text
+
+
+def test_a_move_below_the_rounding_boundary_still_drops_the_section(repo, snapshot):
+    """A change that renders as +0.00% is not a change the reader can act on."""
+    publish_baseline(repo, snapshot(), {engine.USD_MARKET: 185_400.4}, AT - timedelta(hours=4))
+    assert "↕ تغییر از آخرین گزارش" not in render_snapshot(
+        analyze(snapshot(), repo, CONFIG), CONFIG_FA
+    )
+
+
+def test_one_real_move_keeps_the_whole_section(repo, snapshot):
+    """Suppression is all-or-nothing: a flat line beside a real one is context."""
+    publish_baseline(
+        repo,
+        snapshot(),
+        {engine.USD_MARKET: 185_400.0, engine.GOLD_MARKET: 18_000_000.0},
+        AT - timedelta(hours=4),
+    )
+    text = render_snapshot(analyze(snapshot(), repo, CONFIG), CONFIG_FA)
+    assert "↕ تغییر از آخرین گزارش" in text
+    assert "دلار +0.00%" in text
+    assert "طلا +6.39%" in text
+
+
+def test_both_reports_carry_one_clock_in_the_status_block(repo, snapshot):
+    """§9, and the decision that it replaces the old status clock rather than joining it."""
+    analysis = analyze(full(snapshot), repo, CONFIG)
+    for text in (render_snapshot(analysis, CONFIG_FA), render_analysis(analysis, CONFIG_FA)):
+        assert "🔄 آخرین به‌روزرسانی: 13:00" in text
+        assert text.count("آخرین به‌روزرسانی") == 1
+        # The clock that used to ride on the freshness line is gone from it.
+        assert "داده‌ها به‌روز | " not in text
 
 
 def test_stale_board_says_it_is_a_previous_close(repo, snapshot):
@@ -133,7 +177,7 @@ def test_analysis_never_says_intrinsic_value(repo, snapshot):
     """§22: theoretical value and metal content, never 'ارزش ذاتی'."""
     text = render_analysis(analyze(full(snapshot), repo, CONFIG), CONFIG_FA)
     assert "ارزش ذاتی" not in text
-    assert "ارزش نظری" in text and "ارزش طلای سکه" in text
+    assert "نظری بر مبنای دلار بازار" in text and "ارزش طلای سکه" in text
 
 
 def test_analysis_avoids_verdict_language(repo, snapshot):

@@ -11,6 +11,7 @@ from ..domain.enums import (
     DeliveryStatus,
     Instrument,
     QualityStatus,
+    ReportType,
     SnapshotStatus,
     Unit,
 )
@@ -139,9 +140,11 @@ class Repository:
     def metric_before(self, name: str, before: datetime) -> tuple[float, datetime] | None:
         """The most recent value of a metric strictly before an instant.
 
-        Powers "change since the previous report" (§18), which is a different
-        question from `metric_near`: that one asks for a fixed lookback, this
-        one asks what the last thing we published said.
+        Not the baseline for "change since the last report" — that is
+        `published_baseline`, and wiring it back to this would silently make the
+        published percentage mean "since the last collection" (BUG-007). This
+        answers the plain question about the stored series, which is what
+        inspection and tests want.
         """
         row = self.conn.execute(
             "SELECT metric_value, created_at FROM metrics"
@@ -152,6 +155,40 @@ class Repository:
         if row is None:
             return None
         return float(row["metric_value"]), from_iso(row["created_at"])
+
+    def published_baseline(
+        self, report_type: ReportType, exclude_snapshot_id: int | None = None
+    ) -> dict[str, float]:
+        """Every metric behind the last report of this type that readers actually saw.
+
+        This is the baseline for "change since the last report" (§18), and it is
+        deliberately not `metric_before`: once collection runs more often than
+        publication, the previous row is a reading from thirty minutes ago while
+        the previous *report* is hours old. Anchoring on the delivered report is
+        what keeps the published percentage meaning what its label says.
+
+        A gated delivery writes no metrics, so it is skipped rather than
+        producing an empty baseline — the reader compares against the last board
+        that showed numbers. Returns `{}` when nothing has been published yet,
+        which drops the change section instead of inventing a zero.
+        """
+        row = self.conn.execute(
+            "SELECT r.snapshot_id FROM reports r"
+            " WHERE r.report_type = ? AND r.delivery_status = ? AND r.snapshot_id IS NOT NULL"
+            "   AND r.snapshot_id IS NOT ?"
+            "   AND EXISTS (SELECT 1 FROM metrics m WHERE m.snapshot_id = r.snapshot_id)"
+            " ORDER BY r.sent_at DESC LIMIT 1",
+            (report_type.value, DeliveryStatus.SENT.value, exclude_snapshot_id),
+        ).fetchone()
+        if row is None:
+            return {}
+        return {
+            r["metric_name"]: float(r["metric_value"])
+            for r in self.conn.execute(
+                "SELECT metric_name, metric_value FROM metrics WHERE snapshot_id = ?",
+                (row["snapshot_id"],),
+            )
+        }
 
     def latest_snapshot(self) -> Snapshot | None:
         row = self.conn.execute(

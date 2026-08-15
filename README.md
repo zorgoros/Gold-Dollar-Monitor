@@ -150,14 +150,22 @@ catches a unit regression or a garbage print without a second provider.
 
 | What | Frequency |
 |---|---|
+| Data collection | every 30 min — 08:30–21:00 `Asia/Tehran` |
 | Market Snapshot | 4×/day — 09:00, 13:00, 17:00, 21:00 `Asia/Tehran` |
 | Ayar Analysis | 2×/day — 13:00, 21:00 `Asia/Tehran` |
 | Source polling | once per run; no continuous polling |
 | Trend horizons | 1, 3, 7 days (30 available) |
 
-Both schedules live in `config/default.toml` under `[schedule]` and must match
-your cron or systemd timer, which fires at the union of the two. No count or
-time is hard-coded. Scheduling is cron by default — see
+Collecting is not publishing. Every run stores its raw observations, but a run
+that is not near a configured slot gets an `adhoc` key and sends nothing, and a
+second run inside one slot is refused by the delivered-key index — so 26 runs a
+day still produce 6 messages. Accumulating history is the point of the extra
+runs; the analytical model is frozen at v1.2 until there is enough of it to
+calibrate against.
+
+Both publication schedules live in `config/default.toml` under `[schedule]`, and
+your cron or systemd timer must fire at least at the union of the two. No count
+or time is hard-coded. Scheduling is cron by default — see
 [docs/OPERATIONS.md](docs/OPERATIONS.md).
 
 **Data quality is a publication gate, not a footnote.** The snapshot board

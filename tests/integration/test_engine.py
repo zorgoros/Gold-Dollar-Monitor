@@ -141,13 +141,78 @@ def test_display_only_currencies_are_still_stored_as_metrics(repo, snapshot):
 def test_change_since_previous_report_is_computed(repo, snapshot):
     from datetime import timedelta
 
-    from market_monitor.domain.models import Metric
-    from tests.conftest import AT
+    from tests.conftest import AT, publish_baseline
 
-    sid = repo.save_snapshot(snapshot())
-    repo.save_metrics(
-        sid, [Metric(engine.USD_MARKET, 180_000.0, "toman/usd", "1.1")], AT - timedelta(hours=4)
-    )
+    publish_baseline(repo, snapshot(), {engine.USD_MARKET: 180_000.0}, AT - timedelta(hours=4))
     result = analyze(snapshot(), repo, CONFIG)
     assert result.changes[engine.USD_MARKET] == pytest.approx(3.0)
     assert result.changes[engine.GOLD_MARKET] is None
+
+
+def test_collections_between_reports_do_not_become_the_baseline(repo, snapshot):
+    """BUG-007. The whole reason the 30-minute cron is safe to turn on.
+
+    Published at 180,000; collected again at 184,000 half an hour later without
+    publishing; now at 185,400. The reader was last shown 180,000, so that is
+    what +3.00% has to be measured against — not the intervening reading, which
+    would print +0.76% under a label saying "since the last report".
+    """
+    from datetime import timedelta
+
+    from market_monitor.domain.models import Metric
+    from tests.conftest import AT, publish_baseline
+
+    publish_baseline(repo, snapshot(), {engine.USD_MARKET: 180_000.0}, AT - timedelta(hours=4))
+    unpublished = repo.save_snapshot(snapshot(at=AT - timedelta(minutes=30)))
+    repo.save_metrics(
+        unpublished,
+        [Metric(engine.USD_MARKET, 184_000.0, "toman/usd", "1.1")],
+        AT - timedelta(minutes=30),
+    )
+
+    result = analyze(snapshot(), repo, CONFIG)
+    assert result.changes[engine.USD_MARKET] == pytest.approx(3.0)
+
+
+def test_a_gated_delivery_is_not_a_baseline(repo, snapshot):
+    """A withheld report showed no numbers, so it cannot be what a reader saw."""
+    from datetime import timedelta
+
+    from market_monitor.domain.enums import ReportType
+    from market_monitor.domain.models import Report
+    from tests.conftest import AT, publish_baseline
+
+    publish_baseline(repo, snapshot(), {engine.USD_MARKET: 180_000.0}, AT - timedelta(hours=4))
+    # A later delivery that carried the "unavailable" line: a snapshot, no metrics.
+    gated_snapshot = repo.save_snapshot(snapshot(at=AT - timedelta(hours=1)))
+    gated = repo.save_report(
+        Report(
+            report_type=ReportType.MARKET_SNAPSHOT,
+            report_key="market_snapshot|gated|1.1",
+            content="unavailable",
+            channel="telegram",
+            generated_at=AT - timedelta(hours=1),
+            model_version="1.1",
+            snapshot_id=gated_snapshot,
+        )
+    )
+    repo.mark_report_sent(gated, message_id=2)
+
+    result = analyze(snapshot(), repo, CONFIG)
+    assert result.changes[engine.USD_MARKET] == pytest.approx(3.0)
+
+
+def test_no_published_report_yet_means_no_change_at_all(repo, snapshot):
+    """Stored metrics alone are not a baseline — nobody was shown them."""
+    from datetime import timedelta
+
+    from market_monitor.domain.models import Metric
+    from tests.conftest import AT
+
+    stored = repo.save_snapshot(snapshot(at=AT - timedelta(hours=4)))
+    repo.save_metrics(
+        stored,
+        [Metric(engine.USD_MARKET, 180_000.0, "toman/usd", "1.1")],
+        AT - timedelta(hours=4),
+    )
+    assert analyze(snapshot(), repo, CONFIG).changes[engine.USD_MARKET] is None

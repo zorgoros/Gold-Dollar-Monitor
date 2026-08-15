@@ -20,7 +20,7 @@ from market_monitor.jobs.collect import collect
 from market_monitor.jobs.report import base_analysis, due_report_types, prepare, store_analytics
 from market_monitor.providers.tgju import TgjuProvider
 from market_monitor.settings import Settings
-from market_monitor.timeutil import TEHRAN
+from market_monitor.timeutil import TEHRAN, to_tehran
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 CONFIG_PATH = Path(__file__).resolve().parents[2] / "config" / "default.toml"
@@ -272,6 +272,46 @@ def test_schedule_defaults_are_four_snapshots_and_two_analyses():
     config = Settings.load(CONFIG_PATH).config["schedule"]
     assert len(config["snapshot"]) == 4
     assert len(config["analysis"]) == 2
+
+
+def test_thirty_minute_collection_does_not_raise_the_post_rate():
+    """The v1.2.1 guarantee: 26 collection runs a day, still 4 + 2 publications.
+
+    Walks the exact cron in .github/workflows/collect.yml — every 30 minutes from
+    05:00 to 17:30 UTC — through the shipped config and counts what each run
+    would publish. A run that is not near a configured slot must get an adhoc key
+    and post nothing, which is what makes raising the collection rate free.
+    """
+    from datetime import UTC, datetime
+
+    shipped = Settings.load(CONFIG_PATH)
+    runs = [datetime(2026, 8, 12, 5, 0, tzinfo=UTC) + timedelta(minutes=30 * i) for i in range(26)]
+    assert to_tehran(runs[0]).strftime("%H:%M") == "08:30"
+    assert to_tehran(runs[-1]).strftime("%H:%M") == "21:00"
+
+    published = [(at, due_report_types(at, shipped)) for at in runs]
+    snapshots = [at for at, due in published if ReportType.MARKET_SNAPSHOT in due]
+    analyses = [at for at, due in published if ReportType.AYAR_ANALYSIS in due]
+
+    assert [to_tehran(at).strftime("%H:%M") for at in snapshots] == [
+        "09:00",
+        "13:00",
+        "17:00",
+        "21:00",
+    ]
+    assert [to_tehran(at).strftime("%H:%M") for at in analyses] == ["13:00", "21:00"]
+    assert sum(len(due) for _, due in published) == 6
+
+
+def test_slot_tolerance_stays_under_the_collection_interval():
+    """Above 30 minutes the run *before* a slot claims it and posts early.
+
+    The tolerance was 90 when collection ran four times a day. Raising it back
+    without also slowing the cron is the quiet way to break publication timing,
+    so the invariant is asserted rather than left in a comment.
+    """
+    tolerance = Settings.load(CONFIG_PATH).config["schedule"]["slot_tolerance_minutes"]
+    assert tolerance < 30
 
 
 def test_due_report_types_follow_config_not_code(settings, tmp_path):

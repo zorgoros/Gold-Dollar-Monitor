@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from typing import Any
 
 from ..domain.constants import FORMULA_VERSION, USD_AED_PEG
-from ..domain.enums import AnalysisBasis, Instrument, QualityStatus
+from ..domain.enums import AnalysisBasis, Instrument, QualityStatus, ReportType
 from ..domain.models import Metric, Signal, Snapshot
 from ..storage.repositories import Repository
 from .formulas import (
@@ -191,10 +191,15 @@ def analyze(
         name: trends(repo, name, value, now, TREND_HORIZONS, trend_tolerance)
         for name, value in metrics.items()
     }
-    changes: dict[str, float | None] = {}
-    for name, value in metrics.items():
-        previous = repo.metric_before(name, now)
-        changes[name] = pct_change(value, previous[0]) if previous else None
+    # The baseline is the last *published* board, not the last stored row. Those
+    # were the same thing while the cron collected exactly as often as it posted;
+    # they are not once collection runs every 30 minutes, and "تغییر از آخرین
+    # گزارش" has to keep measuring what it says it measures (BUG-007).
+    baseline = repo.published_baseline(ReportType.MARKET_SNAPSHOT, snapshot.id)
+    changes: dict[str, float | None] = {
+        name: pct_change(value, baseline[name]) if name in baseline else None
+        for name, value in metrics.items()
+    }
 
     degraded = any(q.quality_status is not QualityStatus.OK for q in snapshot.quotes.values())
     implied_dir = direction(computed_trends[USD_IMPLIED]["1d"], tolerance_pct)

@@ -2,8 +2,8 @@ from datetime import UTC, datetime
 
 import pytest
 
-from market_monitor.domain.enums import CANONICAL_UNIT, Instrument, SnapshotStatus
-from market_monitor.domain.models import Quote, Snapshot
+from market_monitor.domain.enums import CANONICAL_UNIT, Instrument, ReportType, SnapshotStatus
+from market_monitor.domain.models import Metric, Quote, Report, Snapshot
 from market_monitor.storage.database import connect, migrate
 from market_monitor.storage.repositories import Repository
 
@@ -42,6 +42,40 @@ def make_quote(instrument: Instrument, value: float, at: datetime = AT, **kwargs
         source_timestamp=at,
         **kwargs,
     )
+
+
+def publish_baseline(
+    repo: Repository,
+    snapshot: Snapshot,
+    metrics: dict[str, float],
+    at: datetime = AT,
+    report_type: ReportType = ReportType.MARKET_SNAPSHOT,
+) -> int:
+    """Store a snapshot, its metrics, and a report of it that readers saw.
+
+    The change line is anchored on the last *delivered* report (BUG-007), so
+    planting metrics is no longer enough to create a baseline — the delivery has
+    to exist too. Returns the snapshot id.
+    """
+    snapshot_id = repo.save_snapshot(snapshot)
+    repo.save_metrics(
+        snapshot_id,
+        [Metric(name, value, "toman/usd", "1.1") for name, value in metrics.items()],
+        at,
+    )
+    report_id = repo.save_report(
+        Report(
+            report_type=report_type,
+            report_key=f"{report_type.value}|{at:%Y-%m-%d %H:%M}|1.1",
+            content="baseline",
+            channel="telegram",
+            generated_at=at,
+            model_version="1.1",
+            snapshot_id=snapshot_id,
+        )
+    )
+    repo.mark_report_sent(report_id, message_id=1)
+    return snapshot_id
 
 
 @pytest.fixture

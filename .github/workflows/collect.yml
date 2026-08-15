@@ -13,11 +13,18 @@ name: collect
 
 on:
   schedule:
-    # 05:30 09:30 13:30 17:30 UTC = 09:00 13:00 17:00 21:00 Asia/Tehran.
-    # Iran abolished DST in 2022, so the +3:30 offset holds year-round.
-    # GitHub's scheduler is best-effort and often runs late; that is absorbed by
-    # [schedule].slot_tolerance_minutes = 90, which is why it is set that wide.
-    - cron: "30 5,9,13,17 * * *"
+    # Every 30 minutes from 05:00 to 17:30 UTC = 08:30 to 21:00 Asia/Tehran.
+    # Iran abolished DST in 2022, so the +3:30 offset holds year-round, which is
+    # why Tehran's o'clock lands on UTC's half hour.
+    #
+    # This is the COLLECTION cadence, not the publication one. Publication is
+    # driven by [schedule].snapshot and [schedule].analysis in config/default.toml
+    # and is unchanged at 4 + 2 a day: a run that is not near a configured slot
+    # gets an adhoc key and publishes nothing, and the second run inside one slot
+    # is refused by the delivered-key index. The window ends at 21:00 Tehran
+    # because that is the last publication slot and a closed domestic market only
+    # restates its own close.
+    - cron: "0,30 5-17 * * *"
   workflow_dispatch:
     inputs:
       dry_run:
@@ -57,12 +64,28 @@ jobs:
           git config user.email "market-monitor@users.noreply.github.com"
           git remote add origin \
             "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git"
-          if git fetch -q --depth 1 origin market-data 2>/dev/null; then
-            git reset -q --hard FETCH_HEAD
-            echo "restored $(du -h market.db | cut -f1) database"
-          else
-            echo "no market-data branch yet — starting a fresh database"
-          fi
+          # `git fetch` exits non-zero both when the branch does not exist yet
+          # and when the network is down, and the publish step below force-pushes
+          # over a single amended commit. Reading the second as the first once is
+          # the end of the dataset, so ask which it is before deciding.
+          rc=0
+          git ls-remote --exit-code --heads origin market-data >/dev/null || rc=$?
+          case "$rc" in
+            0)
+              git fetch -q --depth 1 origin market-data
+              git reset -q --hard FETCH_HEAD
+              cp market.db "$RUNNER_TEMP/previous.db"
+              echo "restored $(du -h market.db | cut -f1) database"
+              ;;
+            2)
+              echo "no market-data branch yet — starting a fresh database"
+              ;;
+            *)
+              echo "::error::cannot reach the market-data branch (git exit $rc)."
+              echo "::error::Refusing to continue — a fresh database here would be force-pushed over the real one."
+              exit 1
+              ;;
+          esac
 
       # Raw observations are stored before anything is derived from them, so a
       # gated report or a Telegram outage still leaves the quotes on disk. That
@@ -85,8 +108,18 @@ jobs:
         if: always()
         run: python scripts/scan_db_for_secrets.py "$DATA_DIR/market.db"
 
+      # The observation tables only ever grow. A count that fell means this file
+      # is not the branch's database with a run appended to it, and force-pushing
+      # it would discard history that cannot be re-collected.
+      - name: Refuse to push a database that lost history
+        id: growth
+        if: always()
+        run: |
+          python scripts/guard_db_growth.py \
+            "$RUNNER_TEMP/previous.db" "$DATA_DIR/market.db"
+
       - name: Publish the database
-        if: always() && steps.scan.outcome == 'success'
+        if: always() && steps.scan.outcome == 'success' && steps.growth.outcome == 'success'
         working-directory: ${{ github.workspace }}/_data
         run: |
           git add -A

@@ -1,10 +1,12 @@
 [Unit]
-Description=Run the market monitor at the configured Tehran slots
+Description=Collect market data every 30 minutes and publish the slots that are due
 
 [Timer]
-# Must fire at the union of [schedule].snapshot and [schedule].analysis in
-# config/default.toml.
-OnCalendar=*-*-* 09,13,17,21:00:00
+# The COLLECTION cadence, faster than publication on purpose. It must cover at
+# least the union of [schedule].snapshot and [schedule].analysis in
+# config/default.toml; the runs in between store observations and publish
+# nothing (docs/OPERATIONS.md, "Scheduling").
+OnCalendar=*-*-* 08..21:00,30:00
 Persistent=true
 
 [Install]

@@ -24,8 +24,8 @@ gh workflow run collect.yml                    # publishes for real
 
 On the orphan **`market-data`** branch, not on `main`. A SQLite file does not
 delta, so a commit per run would bury a fresh copy of a growing binary in
-`main`'s history four times a day — roughly 1,500 copies a year, removable only
-by a `git filter-repo` rewrite that breaks every clone. The branch instead holds
+`main`'s history 26 times a day — roughly 9,500 copies a year, removable only by
+a `git filter-repo` rewrite that breaks every clone. The branch instead holds
 exactly one commit, amended and force-pushed each run, and retiring it is:
 
 ```bash
@@ -37,20 +37,42 @@ points `DATABASE_URL` at it, and pushes it back. The push runs even when the
 pipeline step fails: raw observations are stored before anything derives from
 them, and a dropped collection is the one loss that cannot be back-filled.
 
-`scripts/scan_db_for_secrets.py` runs between the two and fails the job rather
-than publish a database containing anything credential-shaped. The branch is
-pushed unattended to a public repository, so this is checked, not assumed.
+### The two guards before the push
+
+The branch is one amended commit that is force-pushed, so there is no earlier
+commit to restore from. Both guards fail the job instead of publishing, and both
+run `if: always()`:
+
+- `scripts/scan_db_for_secrets.py` — refuses a database containing anything
+  credential-shaped. The branch is pushed unattended to a public repository, so
+  this is checked, not assumed.
+- `scripts/guard_db_growth.py` — refuses a database holding fewer rows than the
+  one fetched. The observation tables only ever grow, so a count that fell means
+  the file was replaced rather than appended to.
+
+The fetch step is the other half of that protection. `git fetch` exits non-zero
+both for "branch does not exist yet" and for "the network is down", and treating
+the second as the first once would force-push an empty database over the whole
+dataset. It therefore asks `git ls-remote --exit-code` first: exit 2 is a genuinely
+absent branch and starts fresh, anything else fails the job.
 
 ### Known behaviour
 
-- **Scheduled runs are late**, routinely by 5–20 minutes under load. Absorbed by
-  `[schedule].slot_tolerance_minutes = 90`, which is why it is that wide.
-- **Cron here is UTC.** `30 5,9,13,17` is 09:00/13:00/17:00/21:00 Tehran. Iran
-  abolished DST in 2022, so the +3:30 offset holds year-round. Changing
-  `[schedule]` means changing this cron in the same edit.
-- **GitHub disables schedules after 60 days of repository inactivity.** The
-  per-run push to `market-data` counts as activity, so this only bites if
-  collection is already broken.
+- **Scheduled runs are late**, routinely by 5–20 minutes under load, and GitHub's
+  own docs say queued jobs may be *dropped* entirely when load is high enough. A
+  dropped run now costs one collection cycle rather than a quarter of the day.
+- **Cron here is UTC.** `0,30 5-17` is 08:30–21:00 Tehran every 30 minutes. Iran
+  abolished DST in 2022, so the +3:30 offset holds year-round, which is why
+  Tehran's o'clock falls on UTC's half hour. This is the *collection* cadence;
+  see [Scheduling](#scheduling) for why it is not the publication one.
+- **Public repositories have no Actions minute quota** on standard runners, so
+  the run count is not a billing question.
+- **GitHub disables schedules after 60 days of repository inactivity.** Whether
+  the unattended per-run push to `market-data` counts as activity is *not*
+  documented, and we are deliberately not adding a synthetic keepalive to find
+  out. GitHub emails the repository owner when it disables a workflow; that
+  notification is the signal, and re-enabling is one click in the Actions tab.
+  Collection stops until it is done, so do not ignore the mail.
 
 ## Deploy (VPS, no Docker)
 
@@ -116,12 +138,49 @@ is actually in force.
 
 ## Scheduling
 
-Cron is the default (`deploy/cron/market-monitor.cron`). One entry covers both
-report types — the run publishes whichever slots the current time matches:
+Three frequencies, deliberately not one. Confusing them is how a system ends up
+posting every time it looks at a price.
+
+| | How often | Set by |
+|---|---|---|
+| **Collection** | every 30 min, 08:30–21:00 Tehran | the cron in `collect.yml` |
+| **Publication** | 4 snapshots + 2 analyses a day | `[schedule]` in `config/default.toml` |
+| **Message update** | not implemented | — see below |
+
+**Raising collection does not raise publication**, and that is a property of the
+code rather than a coincidence of the cron:
+
+1. `collect()` stores its raw observations on every run, whatever happens next.
+2. `due_report_types()` publishes only within `[schedule].slot_tolerance_minutes`
+   of a configured slot. Every other run gets an `adhoc` key and posts nothing.
+3. The second run *inside* one slot renders the same `report_type|slot|model_version`
+   key, and the unique index on delivered keys refuses it.
+
+So the 26 runs a day produce the same 6 messages that 6 runs a day did. The
+[`test_thirty_minute_collection_does_not_raise_the_post_rate`](../tests/integration/test_pipeline.py)
+test walks the real cron through the shipped config and asserts exactly that.
+
+**`slot_tolerance_minutes` must stay under 30**, the collection interval. Above
+it, the run *before* a slot falls inside the slot's window and claims it, and the
+report goes out early. It was 90 when collection ran four times a day and a
+missed run meant a missed report; the next attempt is now 30 minutes away, so it
+can be tight enough to keep a post near its stated time. A test asserts the
+bound.
+
+**Message update** — editing an already-published report instead of sending a new
+one — is not built. `reports.telegram_message_id` is recorded on every delivery
+and nothing reads it back yet; that column is the foundation the work would start
+from. Scope and open questions live in `EXTENSIONS.md` under *Configurable
+refresh and update-on-change engine* (AE) and *Telegram dashboard mode* (Y).
+
+### On a VPS instead
+
+`deploy/cron/market-monitor.cron`. One entry covers both report types — the run
+publishes whichever slots the current time matches:
 
 ```cron
 CRON_TZ=Asia/Tehran
-0 9,13,17,21 * * * cd /srv/market-monitor && .venv/bin/market-monitor run-once >> logs/run.log 2>&1
+0,30 8-21 * * * cd /srv/market-monitor && .venv/bin/market-monitor run-once >> logs/run.log 2>&1
 ```
 
 systemd equivalent in `deploy/systemd/` — enable with:
@@ -130,11 +189,9 @@ systemd equivalent in `deploy/systemd/` — enable with:
 sudo systemctl enable --now market-monitor.timer
 ```
 
-Cron must fire at the **union** of the two slot lists, so **keep cron and the
-config in agreement**. A run more than `[schedule].slot_tolerance_minutes` from
-any configured slot gets its own `adhoc` key; off-slot runs publish nothing
-unless `--type` forces a report, which is what keeps manual runs from adding
-channel noise.
+Cron must fire at least at the **union** of the two slot lists, so **keep cron
+and the config in agreement**. Off-slot runs publish nothing unless `--type`
+forces a report, which is what keeps manual runs from adding channel noise.
 
 ## The publication gate
 

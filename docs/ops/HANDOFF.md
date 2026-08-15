@@ -13,6 +13,7 @@ Whoever is working this project — any tools, any number, any roles. Name them
 | Name | Tool | Role |
 |---|---|---|
 | `claude-solo` | Claude Code | builds and maintains the service |
+| `codex-design` | Codex | dashboard discovery and design |
 
 > Add rows as the roster grows (a `codex-builder`, a reviewer, whatever the
 > work needs). Nothing in `pos` validates the names — this table is the guard.
@@ -64,4 +65,39 @@ Blocked: none — footer channel line stays absent until the channel has a publi
 ## 2026-08-14 · claude-solo
 Did: recorded ten owner ideas in EXTENSIONS.md as Y–AG plus a full entry expanding seeded L (dashboard mode, publishing modes, archive policy, on-demand history, per-destination config, personal chat, refresh/change engine, entitlements, deterministic state machine, AI commentary); all IDEA status, nothing implemented; added a family note under the seeded table
 Next: owner triage — approve/reject individually; AC (destination registry) is the root dependency for the delivery family, AG is blocked on F/G/R
+Blocked: none
+
+## 2026-08-15  · codex-design
+Did: reviewed the dashboard-ready analytical contract, persistence boundaries, extension scope, and public-site reference; the referenced domain did not resolve from this environment
+Next: confirm whether the first public dashboard is embedded in zorgoros.x, standalone, or both
+Blocked: visual reference unavailable until a reachable URL or screenshot is provided
+
+## 2026-08-15  · codex-design
+Did: confirmed visual design selection precedes deployment; prepared the visual-ideation workflow
+Next: obtain a reachable Zorgoros reference or permission to explore an original design direction
+Blocked: the named visual source remains unavailable from this environment
+
+## 2026-08-15  · codex-design
+Did: inspected the supplied Netlify visual reference and generated three original RTL Ayar Market dashboard directions, grounded in the existing market-card contract
+Next: owner selects a visual direction or requests refinements before implementation planning
+Blocked: none
+
+## 2026-08-15  · codex-design
+Did: verified that stored snapshots, metrics, signals, and the existing widget contract support the selected dashboard design; identified the missing read-only web projection and history query boundary
+Next: create an isolated worktree, write the approved dashboard specification and implementation plan, then implement the API and separate UI layer
+Blocked: current checkout contains unrelated uncommitted work; isolated-worktree consent required before creating files
+
+## 2026-08-15  · codex-design
+Did: created `.worktrees/dashboard-v1` on `codex/dashboard-v1` from `main` commit `c54438c`; recorded the branch, path, purpose, and merge gate in MEMORY.md
+Next: write the dashboard specification and plan in the isolated worktree, then build the read-only API and separate UI layer
+Blocked: none
+
+## 2026-08-15 16:32 · claude-solo
+Did: v1.2.1 shipped: BUG-006 (fetch failure could force-push an empty db over market-data) and BUG-007 (change line anchored on the last delivered report via Repository.published_baseline) fixed first; collection cron to every 30 min 08:30-21:00 Tehran with slot_tolerance 90->20, publication unchanged at 4+2; formatter/signals wording per owner brief 2-6 and 9; 217 tests green, ruff/mypy clean, live dry-run verified both reports
+Next: watch the first 30-min cycles on Actions — confirm one post per slot and that the growth guard passes on the real branch
+Blocked: none
+
+## 2026-08-15 16:41 · codex-design
+Did: checked current Codex project-removal guidance; official docs do not document the UI control
+Next: provide removal steps if needed
 Blocked: none

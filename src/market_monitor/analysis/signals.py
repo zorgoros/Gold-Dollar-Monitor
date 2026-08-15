@@ -151,9 +151,14 @@ def _usd_summary(
                 f"({gap:+.2f}٪ و {aed_gap:+.2f}٪)."
             )
         if abs(aed_gap) <= bands.neutral:
+            # Not "the dirham confirms the dollar". Convergence has been observed,
+            # never backtested, and confirmation is a claim about a validated
+            # signal — one that cannot honestly be made before F/G exist. State
+            # the two distances and let them stand (§21, §40).
+            side = "بالاتر" if gap > 0 else "پایین‌تر"
             return (
-                "بازار درهم نرخ دلار را تقریباً تأیید می‌کند، "
-                f"اما فاصله دلار با نرخ ضمنی طلا {gap:+.2f}٪ است."
+                "نرخ دلار و نرخ ضمنی درهم تقریباً هم‌سطح‌اند؛ "
+                f"دلار نسبت به نرخ ضمنی طلا {abs(gap):.2f}٪ {side} قرار دارد."
             )
         return (
             f"فاصله دلار با نرخ ضمنی طلا {gap:+.2f}٪ و با نرخ ضمنی درهم {aed_gap:+.2f}٪ است؛ "

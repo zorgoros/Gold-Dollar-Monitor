@@ -165,10 +165,25 @@ def _header(analysis: Analysis, title: str) -> list[str]:
 
 
 def _status(analysis: Analysis) -> str:
+    """The market-session basis, and nothing else.
+
+    The clock that used to ride on this line moved to `_last_update`: one time in
+    the status block, not one per line, and the same one on both bases.
+    """
     if analysis.basis is AnalysisBasis.LAST_CLOSE:
         return STATUS_LAST_CLOSE
+    return STATUS_FRESH
+
+
+def _last_update(analysis: Analysis) -> str:
+    """When the numbers above were actually observed and rendered.
+
+    Deliberately `reference_at or as_of` — the instant behind the data, not the
+    moment the scheduler happened to fire. A run that collected nothing new never
+    reaches here, so this can only ever name a successful update.
+    """
     local = to_tehran(analysis.reference_at or analysis.as_of)
-    return f"{STATUS_FRESH} | {local:%H:%M}"
+    return f"🔄 آخرین به‌روزرسانی: {local:%H:%M}"
 
 
 # --------------------------------------------------------------------- surfaces
@@ -203,14 +218,22 @@ def render_snapshot(analysis: Analysis, config: ReportConfig) -> str:
 
     if config.show_change:
         moves = [
-            f"{SHORT_LABEL[metric]} {signed_pct(analysis.changes[metric])}"
+            (SHORT_LABEL[metric], analysis.changes[metric])
             for metric in (engine.USD_MARKET, engine.GOLD_MARKET, engine.COIN_MARKET)
             if analysis.changes.get(metric) is not None
         ]
-        if moves:
-            lines += ["↕ تغییر از گزارش قبل", " | ".join(moves), ""]
+        # Three lines of ±0.00% tell a reader nothing and imply a precision the
+        # rounding does not have. Below the rounding boundary the section goes,
+        # rather than being printed empty of meaning (§18).
+        if any(abs(value or 0.0) >= 0.005 for _, value in moves):
+            lines += [
+                "↕ تغییر از آخرین گزارش",
+                " | ".join(f"{label} {signed_pct(value)}" for label, value in moves),
+                "",
+            ]
 
     lines.append(_status(analysis))
+    lines.append(_last_update(analysis))
     lines.append("")
     lines += footer(config)
     return "\n".join(lines)
@@ -223,10 +246,10 @@ def render_analysis(analysis: Analysis, config: ReportConfig) -> str:
     lines = _header(analysis, "⚖️ تحلیل عیار")
 
     lines.append("💵 دلار")
-    lines.append(f"بازار: {toman(metrics[engine.USD_MARKET])}")
-    lines.append(f"ضمنی طلا: {toman(metrics[engine.USD_IMPLIED])}")
+    lines.append(f"بازار: {toman(metrics[engine.USD_MARKET])} تومان")
+    lines.append(f"ضمنی طلا: {toman(metrics[engine.USD_IMPLIED])} تومان")
     if engine.USD_AED_IMPLIED in metrics:
-        lines.append(f"ضمنی درهم: {toman(metrics[engine.USD_AED_IMPLIED])}")
+        lines.append(f"ضمنی درهم: {toman(metrics[engine.USD_AED_IMPLIED])} تومان")
     lines.append("")
     lines.append(f"فاصله با طلا: {signed_pct(metrics[engine.USD_GAP])}")
     if engine.AED_GAP in metrics:
@@ -236,30 +259,39 @@ def render_analysis(analysis: Analysis, config: ReportConfig) -> str:
     if usd_signal:
         lines += ["", "برداشت:", escape(usd_signal.summary_fa)]
 
+    # The theoretical value is the market dollar run through the gold parity, so
+    # this gap is the dollar/gold divergence seen from the other end — one
+    # relationship algebraically inverted, never a second piece of evidence (§6).
+    # The parenthetical says so, because a reader who does not know that will
+    # count it twice.
     lines += [
         "",
         "🥇 طلای ۱۸ عیار",
-        f"بازار: {toman(metrics[engine.GOLD_MARKET])}",
-        f"ارزش نظری: {toman(metrics[engine.GOLD_THEORETICAL])}",
+        f"بازار: {toman(metrics[engine.GOLD_MARKET])} تومان",
+        f"نظری بر مبنای دلار بازار: {toman(metrics[engine.GOLD_THEORETICAL])} تومان",
         f"فاصله: {signed_pct(metrics[engine.GOLD_GAP])}",
+        "(همان واگرایی دلار/طلا از سمت طلا)",
     ]
 
     if engine.COIN_MARKET in metrics:
         lines += [
             "",
             "🪙 سکه امامی",
-            f"بازار: {toman(metrics[engine.COIN_MARKET])}",
-            f"ارزش طلای سکه: {toman(metrics[engine.COIN_INTRINSIC_DOMESTIC])}",
+            f"بازار: {toman(metrics[engine.COIN_MARKET])} تومان",
+            f"ارزش طلای سکه: {toman(metrics[engine.COIN_INTRINSIC_DOMESTIC])} تومان",
             f"حباب: {signed_pct(metrics[engine.COIN_PREMIUM_DOMESTIC])}",
         ]
 
     implied_trends = analysis.trends.get(engine.USD_IMPLIED, {})
     if has_trend(implied_trends):
-        lines += ["", "📈 روند نرخ ضمنی دلار", trend_line(implied_trends)]
+        # Named for its route: the report carries an AED-implied dollar too, and
+        # an unqualified "روند نرخ ضمنی دلار" no longer says which one moved.
+        lines += ["", "📈 روند نرخ ضمنی دلار از طلا", trend_line(implied_trends)]
 
     lines += [
         "",
         _status(analysis),
+        _last_update(analysis),
         f"مدل: v{analysis.model_version}",
         "",
         DISCLAIMER,

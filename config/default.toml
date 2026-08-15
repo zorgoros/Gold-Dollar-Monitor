@@ -93,13 +93,28 @@ metals = ["gold_18k", "xau_usd", "emami_coin"]
 show_change_since_previous = true
 
 [schedule]
-# Tehran local time. Defaults are 4 snapshots and 2 analyses per day (§36); no
-# count or time is assumed anywhere in code, both lists are read at publish
-# time. Keep cron in agreement — see docs/OPERATIONS.md.
+# Three different frequencies, deliberately not one.
+#
+#   COLLECTION — every 30 minutes, set by the cron in
+#     .github/workflows/collect.yml. Every cycle stores its raw observations
+#     whatever happens downstream; that history is the point of this phase.
+#   PUBLICATION — the two lists below, in Tehran local time. 4 snapshots and 2
+#     analyses per day (§36). No count or time is assumed anywhere in code.
+#   MESSAGE UPDATE — not implemented. The publisher only sends; editing an
+#     existing report is EXTENSIONS AE/Y and lands here when it exists.
+#
+# A collection run that is not near a slot below publishes nothing, and the
+# second run inside one slot is refused by the delivered-key index. Raising the
+# collection rate therefore does not raise the post rate. See docs/OPERATIONS.md.
 snapshot = ["09:00", "13:00", "17:00", "21:00"]
 analysis = ["13:00", "21:00"]
 # A run this far from a configured slot gets its own adhoc key instead.
-slot_tolerance_minutes = 90
+#
+# Must stay under the 30-minute collection interval, or the run before a slot
+# claims it and the report goes out early. It was 90 when collection ran only 4
+# times a day and a missed run meant a missed report; now the next attempt is 30
+# minutes away, so this can be tight enough to keep a post near its stated time.
+slot_tolerance_minutes = 20
 
 [reporting]
 # Optional operator line above the attribution (channel handle, site, etc).

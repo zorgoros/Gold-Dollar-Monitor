@@ -16,11 +16,37 @@ data, modular architecture, future widget/web/API expansion\
 
 ------------------------------------------------------------------------
 
-# 0. v1.1 / v1.2 deltas
+# 0. v1.1 / v1.2 / v1.2.1 deltas
 
-Shipped 2026-08-12 and 2026-08-13. Everything below this section describes V1
-and remains accurate except where noted here. Detail lives in the document that
-owns each subject — this section records the *decisions*, not the specifications.
+Shipped 2026-08-12, 2026-08-13, and 2026-08-15. Everything below this section
+describes V1 and remains accurate except where noted here. Detail lives in the
+document that owns each subject — this section records the *decisions*, not the
+specifications.
+
+**v1.2.1 — the analytical model is frozen; collection is not.** No formula, no
+new indicator, and no new instrument. What changed is the rate at which
+observations are gathered and the words the reports use to present them. The
+next phase is a clean historical dataset for the calibration §7 has always said
+these provisional bands need, not more analysis on top of uncalibrated numbers.
+
+**Three frequencies replace one.** *Collection* (every 30 minutes), *publication*
+(4 snapshots + 2 analyses a day), and *message update* (not built) are separate
+concepts. They were previously one because the cron fired exactly at the
+publication slots; nothing in the code required that. Collection is now the
+faster of the two, and off-slot runs store their observations and publish
+nothing. `docs/OPERATIONS.md` owns the cadence and the reason each layer holds.
+
+**"Change since the last report" is anchored on the last delivered report.** It
+was the previous stored row, which was the same thing only while collection and
+publication shared a schedule. `Repository.published_baseline` reads the metrics
+behind the last report a reader actually saw; a withheld delivery is skipped, and
+no baseline drops the section rather than printing zeroes. Making collection
+faster without this would have silently redefined a published number.
+
+**The AED reading states a distance, never a confirmation.** §2.6 forbids
+invented thresholds; describing the dirham as *confirming* the dollar is the same
+error one level up — a claim about a validated signal, made before any backtest
+exists. Convergence is reported as two distances and left there.
 
 **v1.2 — the coin premium's denominator.** The published `حباب` is the premium
 over the *domestic* pure-gold value (`gold_24k`, fallback `gold_18k / 0.75`),
