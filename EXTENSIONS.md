@@ -35,7 +35,7 @@ template above when it is picked up for research.
 
 | Extension | Priority | Description |
 |---|---|---|
-| A. Web dashboard | MEDIUM | Lightweight responsive HTML over the same metrics API |
+| A. Web dashboard | MEDIUM | **Promoted for active work** — first read-only RTL dashboard over the same metrics API; see `docs/superpowers/specs/2026-08-15-first-dashboard-design.md` |
 | B. Widget architecture | MEDIUM | One widget per component, consuming structured JSON, never parsed Telegram text |
 | C. Personal-site integration | LOW | Embed widgets in an existing simple site (e.g. `zorgoros.x`) |
 | D. REST API | MEDIUM | Read-only `/latest`, `/quotes`, `/metrics`, `/signals`, `/history`, `/health` |
