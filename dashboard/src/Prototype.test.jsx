@@ -7,6 +7,12 @@ const latest = {
   as_of: "2026-08-12T09:30:00+00:00",
   basis: "LIVE",
   model_version: "1.2",
+  data_status: {
+    code: "STALE",
+    as_of: "2026-08-12T09:30:00+00:00",
+    age_seconds: 3600,
+    freshness_limit_seconds: 1800,
+  },
   cards: [
     {
       instrument: "USD_IRT",
@@ -39,6 +45,13 @@ const latest = {
       references: [{ name: "metal_content", implied_value: 171200000, gap_pct: 10.68 }],
       data_quality: "OK",
     },
+    {
+      instrument: "AED_IRT",
+      market_value: 51120,
+      change_since_previous_pct: 0.1,
+      references: [],
+      data_quality: "OK",
+    },
   ],
   analysis: {
     state: "READY",
@@ -67,12 +80,15 @@ const latest = {
         reason_codes: ["GAP_SLIGHT"],
       },
     ],
+    summary_fa: ["دلار بازار پایین‌تر از مسیرهای مرجع است."],
   },
 };
 
 const history = {
   state: "READY",
   range: "1d",
+  start: "2026-08-11T09:30:00+00:00",
+  end: "2026-08-12T09:30:00+00:00",
   coverage_complete: true,
   series: {
     usd_market: [
@@ -100,6 +116,7 @@ function mockApi() {
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  window.localStorage?.clear();
 });
 
 describe("Prototype", () => {
@@ -110,10 +127,13 @@ describe("Prototype", () => {
     expect(document.documentElement).toHaveAttribute("dir", "rtl");
     expect((await screen.findAllByText("۱۸۵٬۴۰۰")).length).toBeGreaterThan(0);
     expect(screen.getByRole("heading", { name: "عیار مارکت" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "قیمت‌های اصلی" }).querySelectorAll("article")).toHaveLength(4);
     expect(screen.getByRole("tab", { name: "بازار" })).toHaveAttribute(
       "aria-selected",
       "true",
     );
+    expect(screen.getByText("داده قدیمی")).toBeInTheDocument();
+    expect(screen.queryByText("بازار فعال")).not.toBeInTheDocument();
   });
 
   it("keeps the detailed analysis in a separate view", async () => {
@@ -125,6 +145,35 @@ describe("Prototype", () => {
 
     expect(screen.getByRole("heading", { name: "تحلیل مسیرهای دلار" })).toBeInTheDocument();
     expect(screen.getByText("تحلیل سکه")).toBeInTheDocument();
+    expect(screen.getByText("جمع‌بندی تحلیل")).toBeInTheDocument();
+    expect(screen.getAllByText("دلار بازار پایین‌تر از مسیرهای مرجع است.").length).toBeGreaterThan(0);
+    expect(document.querySelectorAll(".analysis-route-card")).toHaveLength(3);
+  });
+
+  it("opens contextual help for a named market concept", async () => {
+    globalThis.fetch = mockApi();
+    render(<Prototype />);
+    await screen.findAllByText("۱۸۵٬۴۰۰");
+
+    fireEvent.click(screen.getByRole("button", { name: "راهنمای صفحه" }));
+    fireEvent.click(screen.getByRole("button", { name: "راهنمای مسیر طلا" }));
+
+    expect(screen.getByRole("dialog", { name: "مسیر طلا" })).toHaveTextContent(
+      "اونس جهانی",
+    );
+  });
+
+  it("lets the user hide optional widgets from settings", async () => {
+    globalThis.fetch = mockApi();
+    render(<Prototype />);
+    await screen.findAllByText("۱۸۵٬۴۰۰");
+
+    fireEvent.click(screen.getByRole("button", { name: "تنظیمات" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "نمایش کارت سکه امامی" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "نمایش جدول جزئیات" }));
+
+    expect(screen.queryByText("سکه امامی")).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "قیمت، تغییر و کیفیت داده" })).not.toBeInTheDocument();
   });
 
   it("requests a new history range without reloading the page", async () => {

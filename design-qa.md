@@ -59,6 +59,24 @@ Primary interactions tested: switch `بازار`/`تحلیل`; select the 7-day 
 render API-backed cards; render gated/unavailable states. Console errors and
 warnings checked: none.
 
+### Iteration 3 — owner debugging pass passed
+
+- Chart X coordinates and ticks use the requested API `start`/`end` window.
+  Partial 7-day and 30-day history stays at its true database position, and the
+  incomplete-coverage note remains visible.
+- The hover panel renders the Persian calendar date and Tehran clock in separate
+  nodes, which prevents bidirectional text from moving the day beside the time.
+- The former hard-coded “market active” claim is replaced by API-backed data
+  freshness. The help text states that this is not an exchange-hours calendar.
+- Contextual help, display settings, the public footer, equal analysis route
+  cards, and two short backend-produced conclusions were exercised in-browser.
+- At 393 px and 1440 px there is no horizontal document overflow. The three
+  route cards have equal measured height and width at each breakpoint. The
+  console contains no warnings or errors.
+
+The current fixation set passes. The dashboard task remains active because the
+owner requested iterative debugging before design acceptance.
+
 ## Follow-up polish
 
 - [P3] Real production history will make the line shapes less regular than the

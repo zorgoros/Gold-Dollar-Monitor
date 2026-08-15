@@ -2,17 +2,18 @@
 
 from __future__ import annotations
 
-from datetime import timedelta
+from collections.abc import Callable
+from datetime import datetime, timedelta
 from typing import Any
 
 from ..analysis import engine
-from ..domain.enums import ReportType
+from ..domain.enums import AnalysisBasis, ReportType
 from ..jobs.report import base_analysis, prepare
 from ..normalization.validators import validate_snapshot
 from ..reporting.models import widget_payload
 from ..settings import Settings
 from ..storage.repositories import Repository
-from ..timeutil import to_iso
+from ..timeutil import now_utc, to_iso
 
 PUBLIC_METRICS = frozenset(
     {
@@ -42,9 +43,15 @@ RANGES = {
 class DashboardProjection:
     """Read-only adapter between stored analysis and a browser-safe JSON API."""
 
-    def __init__(self, repo: Repository, settings: Settings) -> None:
+    def __init__(
+        self,
+        repo: Repository,
+        settings: Settings,
+        clock: Callable[[], datetime] = now_utc,
+    ) -> None:
         self._repo = repo
         self._settings = settings
+        self._clock = clock
 
     def latest(self) -> dict[str, Any]:
         """Return the latest price board and only analysis that passed its gate."""
@@ -106,6 +113,9 @@ class DashboardProjection:
                     }
                     for signal in analysis.signals
                 ],
+                # Conclusions are produced by the analysis layer. The browser
+                # only presents them and never reinterprets a market formula.
+                "summary_fa": [signal.summary_fa for signal in analysis.signals[:2]],
             }
 
         return {
@@ -113,8 +123,36 @@ class DashboardProjection:
             "as_of": to_iso(observation.as_of),
             "basis": observation.basis.value,
             "model_version": observation.model_version,
+            "data_status": self._data_status(observation.as_of, observation.basis),
             "cards": widget_payload(observation),
             "analysis": analysis_payload,
+        }
+
+    def _data_status(self, as_of: datetime, basis: AnalysisBasis) -> dict[str, Any]:
+        """Describe data freshness without making an exchange-hours claim.
+
+        The project has quote freshness rules but no official Tehran trading
+        calendar. This status therefore reports only what the stored data can
+        prove: current live inputs, a recent last close, or an old snapshot.
+        """
+        freshness = self._settings.section("freshness")
+        required = self._settings.instrument_list("instruments", "mandatory")
+        # The whole board is current only while every mandatory input remains
+        # inside its own limit, so the strictest configured limit wins.
+        limit_minutes = min(float(freshness.get(item.value, 0)) for item in required)
+        age_seconds = max(0, round((self._clock() - as_of).total_seconds()))
+        limit_seconds = round(limit_minutes * 60)
+        if age_seconds > limit_seconds:
+            code = "STALE"
+        elif basis is AnalysisBasis.LAST_CLOSE:
+            code = "LAST_CLOSE"
+        else:
+            code = "LIVE"
+        return {
+            "code": code,
+            "as_of": to_iso(as_of),
+            "age_seconds": age_seconds,
+            "freshness_limit_seconds": limit_seconds,
         }
 
     def history(self, metric_names: tuple[str, ...], range_key: str) -> dict[str, Any]:

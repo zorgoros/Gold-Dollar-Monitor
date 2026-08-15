@@ -71,3 +71,8 @@ Blocked: none
 Did: built first dashboard in `.worktrees/dashboard-v1` on `codex/dashboard-v1`; added read-only API/history projection and standalone RTL React UI; browser and visual QA passed
 Next: owner reviews `http://127.0.0.1:4173`; after approval, merge `codex/dashboard-v1` into `main` and remove the worktree
 Blocked: none
+
+## 2026-08-15 21:45 · codex-builder
+Did: applied owner debugging pass in the dashboard worktree: database-window chart axes, split RTL tooltip date/time, truthful freshness status, contextual help, persistent display settings, footer, equal analysis cards, and API-backed conclusions; full automated and 393/1440 browser QA passed
+Next: owner reviews the updated local preview and reports the next visual or behavior fix; do not merge, push, deploy, or remove the worktree yet
+Blocked: none

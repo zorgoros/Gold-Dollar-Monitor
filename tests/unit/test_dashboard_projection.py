@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 from market_monitor.analysis.engine import analyze
-from market_monitor.domain.enums import Instrument
+from market_monitor.domain.enums import Instrument, QualityStatus
 from market_monitor.jobs.report import store_analytics
 from market_monitor.settings import Settings
 from market_monitor.web.projection import DashboardProjection
@@ -33,6 +33,54 @@ def test_latest_keeps_usd_reference_routes_separate(repo, snapshot, settings):
     assert [item["name"] for item in usd["references"]] == ["gold", "aed"]
     assert "composite" not in payload
     assert "coin_premium_world_pct" not in str(payload)
+
+
+def test_latest_marks_recent_live_observation_as_current(repo, snapshot, settings):
+    repo.save_snapshot(snapshot())
+
+    payload = DashboardProjection(
+        repo,
+        settings,
+        clock=lambda: AT + timedelta(minutes=5),
+    ).latest()
+
+    assert payload["data_status"] == {
+        "code": "LIVE",
+        "as_of": "2026-08-12T09:30:00+00:00",
+        "age_seconds": 300,
+        "freshness_limit_seconds": 1200,
+    }
+
+
+def test_latest_marks_old_snapshot_as_stale(repo, snapshot, settings):
+    repo.save_snapshot(snapshot())
+
+    payload = DashboardProjection(
+        repo,
+        settings,
+        clock=lambda: AT + timedelta(hours=1),
+    ).latest()
+
+    assert payload["data_status"]["code"] == "STALE"
+
+
+def test_latest_reports_last_close_without_claiming_market_hours(repo, snapshot, settings):
+    closed = snapshot()
+    closed.quotes[Instrument.GOLD_18K] = make_quote(
+        Instrument.GOLD_18K,
+        19_150_000.0,
+        AT,
+        quality_status=QualityStatus.STALE,
+    )
+    repo.save_snapshot(closed)
+
+    payload = DashboardProjection(
+        repo,
+        settings,
+        clock=lambda: AT + timedelta(minutes=5),
+    ).latest()
+
+    assert payload["data_status"]["code"] == "LAST_CLOSE"
 
 
 def test_latest_hides_detail_when_analysis_alignment_fails(repo, snapshot, settings):
@@ -70,11 +118,23 @@ def test_history_reports_incomplete_coverage(repo, snapshot, settings):
     payload = DashboardProjection(repo, settings).history(("usd_market",), "1d")
 
     assert payload["range"] == "1d"
+    assert payload["start"] == "2026-08-11T09:30:00+00:00"
+    assert payload["end"] == "2026-08-12T09:30:00+00:00"
     assert payload["coverage_complete"] is False
     assert [point["value"] for point in payload["series"]["usd_market"]] == [
         180_000.0,
         185_400.0,
     ]
+
+
+def test_latest_publishes_short_analysis_conclusions(repo, snapshot, settings):
+    repo.save_snapshot(snapshot(aed=True, coin=True))
+
+    payload = DashboardProjection(repo, settings, clock=lambda: AT).latest()
+
+    assert payload["analysis"]["summary_fa"]
+    assert len(payload["analysis"]["summary_fa"]) <= 2
+    assert payload["analysis"]["summary_fa"][0] == payload["analysis"]["signals"][0]["summary_fa"]
 
 
 @pytest.mark.parametrize("metric", ["coin_premium_world_pct", "secret", ""])

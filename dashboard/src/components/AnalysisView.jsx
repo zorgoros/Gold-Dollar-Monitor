@@ -1,4 +1,4 @@
-import { ArrowLeft, CheckCircle, WarningCircle } from "@phosphor-icons/react";
+import { CheckCircle, WarningCircle } from "@phosphor-icons/react";
 import { formatNumber, formatPercent } from "../format.js";
 
 function Metric({ label, value, kind = "number" }) {
@@ -17,10 +17,13 @@ export function AnalysisView({ analysis }) {
         <h2>تحلیل مسیرهای دلار</h2>
         <p>قیمت بازار با دو مرجع مستقل مقایسه می‌شود. این مسیرها با هم ترکیب نمی‌شوند.</p>
         <div className="analysis-route-grid">
-          <div><span>بازار</span><strong>{formatNumber(m.usd_market)}</strong></div>
-          <ArrowLeft aria-hidden="true" />
-          <div><span>مسیر طلا</span><strong>{formatNumber(m.usd_gold_implied)}</strong><small>{formatPercent(m.usd_gap_pct)}</small></div>
-          <div><span>مسیر درهم</span><strong>{formatNumber(m.usd_aed_implied)}</strong><small>{formatPercent(m.aed_usd_gap_pct)}</small></div>
+          <div className="analysis-route-card"><span>بازار</span><strong>{formatNumber(m.usd_market)}</strong><small>نرخ ثبت‌شده بازار</small></div>
+          <div className="analysis-route-card"><span>مسیر طلا</span><strong>{formatNumber(m.usd_gold_implied)}</strong><small>{formatPercent(m.usd_gap_pct)} فاصله بازار</small></div>
+          <div className="analysis-route-card"><span>مسیر درهم</span><strong>{formatNumber(m.usd_aed_implied)}</strong><small>{formatPercent(m.aed_usd_gap_pct)} فاصله بازار</small></div>
+        </div>
+        <div className="analysis-summary">
+          <strong>جمع‌بندی تحلیل</strong>
+          {(analysis.summary_fa ?? []).map((summary) => <p key={summary}>{summary}</p>)}
         </div>
       </section>
       <section className="analysis-block">

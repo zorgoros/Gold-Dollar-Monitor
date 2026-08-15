@@ -110,10 +110,12 @@ Telegram code.
 The web API starts as a dependency-free local read-only service. Its stable
 contract is under `/api/v1/`:
 
-- `GET /api/v1/latest` — current market-board cards and the gated analysis
-  summary;
+- `GET /api/v1/latest` — current market-board cards, a gated analysis summary,
+  and a data-freshness state. The state describes the stored observation as
+  `LIVE`, `LAST_CLOSE`, or `STALE`; it does not infer official market hours;
 - `GET /api/v1/history?metrics=<names>&range=1d|7d|30d` — bounded metric
-  points, coverage, and unavailable-series information; and
+  points, explicit requested start/end instants, coverage, and
+  unavailable-series information; and
 - `GET /api/v1/health` — latest snapshot time and dashboard data availability.
 
 Vite serves the UI for local review and proxies `/api/v1/` to the Python

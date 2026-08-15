@@ -112,7 +112,7 @@ Resolved 2026-08-13: owner chose the domestic denominator. TGJU's own `sekee_rea
 ### Notes
 Marked with a ponytail: comment in analysis/session.py. The 12h alignment tolerance absorbs the error on an unusual day; a real calendar is the upgrade path if that proves too coarse.
 
-## TASK-008 · first interactive RTL dashboard · DONE
+## TASK-008 · first interactive RTL dashboard · ACTIVE
 **Family:** dashboard,web,ui,analysis,history,rtl
 **Raised:** 2026-08-15
 **Summary:** build the selected option-3 market board with a separate detailed analysis view over the bot's existing calculations
@@ -122,9 +122,16 @@ Marked with a ponytail: comment in analysis/session.py. The 12h alignment tolera
 - [x] P2 — JSON API and local CLI entry point
 - [x] P3 — standalone responsive React dashboard
 - [x] P4 — component, browser, responsive, and visual QA
+- [x] P5 — correct chart time semantics, tooltip direction, and public data status
+- [x] P6 — add contextual help, settings, footer, and analysis-result polish
+- [x] P7 — regression tests, browser QA, and owner review handoff
+- [ ] P8 — continue owner-directed debugging until design acceptance
 
 ### Notes
 Implemented on `codex/dashboard-v1` in `.worktrees/dashboard-v1`. The dashboard
 keeps gold-implied and AED-implied USD separate and reuses the existing session
 gate. Deployment remains intentionally undecided until the owner accepts the
-design.
+design. Owner review on 2026-08-15 reopened the task for the P5–P7 debugging
+pass. The branch and worktree remain unchanged. “Market active” was removed:
+the public label now reports provable data freshness (`LIVE`, `LAST_CLOSE`, or
+`STALE`) and explicitly does not claim an official exchange calendar.
