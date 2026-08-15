@@ -125,7 +125,8 @@ Marked with a ponytail: comment in analysis/session.py. The 12h alignment tolera
 - [x] P5 — correct chart time semantics, tooltip direction, and public data status
 - [x] P6 — add contextual help, settings, footer, and analysis-result polish
 - [x] P7 — regression tests, browser QA, and owner review handoff
-- [ ] P8 — continue owner-directed debugging until design acceptance
+- [x] P8a — bilingual controls, status guide, legal footer, and deterministic analysis context
+- [ ] P8b — continue owner-directed debugging until design acceptance
 
 ### Notes
 Implemented on `codex/dashboard-v1` in `.worktrees/dashboard-v1`. The dashboard
@@ -135,3 +136,6 @@ design. Owner review on 2026-08-15 reopened the task for the P5–P7 debugging
 pass. The branch and worktree remain unchanged. “Market active” was removed:
 the public label now reports provable data freshness (`LIVE`, `LAST_CLOSE`, or
 `STALE`) and explicitly does not claim an official exchange calendar.
+The 2026-08-15 bilingual sub-pass added full Persian/English rendering and a
+Python-owned premade narrative catalog. Full automated and 393/1440 browser QA
+passed. The next action remains owner review; do not merge or publish yet.

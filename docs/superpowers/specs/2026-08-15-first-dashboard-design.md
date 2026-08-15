@@ -2,7 +2,7 @@
 
 ## Status and merge record
 
-- Status: APPROVED FOR SPECIFICATION; implementation waits for this file's review.
+- Status: IMPLEMENTED ON ISOLATED BRANCH; owner design review remains active.
 - Worktree: `.worktrees/dashboard-v1`
 - Branch: `codex/dashboard-v1`
 - Merge target: `main`
@@ -155,6 +155,10 @@ deployed read-only API.
   supported ranges, invalid ranges, and insufficient history.
 - Browser checks cover RTL layout, view switching, range changes, chart loading,
   unavailable states, keyboard navigation, and no browser-console errors.
+- Bilingual browser checks cover Persian/RTL and English/LTR at 393 px and
+  1440 px, including status help, action hints, analysis context, and footer.
+- The projection publishes stable bilingual narrative IDs for overview, gold,
+  and coin. Python selects the conclusion; the browser only renders its locale.
 - The full Python suite, Ruff, format check, and mypy must pass.
 - Visual verification compares the rendered 1440px dashboard with the selected
   option-3 hierarchy, then checks 1024px, 768px, and 375px for readability.

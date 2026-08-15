@@ -76,3 +76,8 @@ Blocked: none
 Did: applied owner debugging pass in the dashboard worktree: database-window chart axes, split RTL tooltip date/time, truthful freshness status, contextual help, persistent display settings, footer, equal analysis cards, and API-backed conclusions; full automated and 393/1440 browser QA passed
 Next: owner reviews the updated local preview and reports the next visual or behavior fix; do not merge, push, deploy, or remove the worktree yet
 Blocked: none
+
+## 2026-08-15 23:30 · codex-builder
+Did: completed the approved bilingual pass on `codex/dashboard-v1` in `.worktrees/dashboard-v1`; UI owns Persian/English presentation while Python selects stable premade narratives for overview, gold, and coin; added status-color help, hover hints, and the MostaHub/ZorgOros legal footer; 225 Python, 17 UI, 4 Sites tests and 393/1440 browser QA passed
+Next: owner reviews `http://127.0.0.1:4173` and reports the next fixation; keep the branch/worktree isolated and do not merge, push, deploy, or remove it
+Blocked: none

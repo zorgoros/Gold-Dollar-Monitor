@@ -77,6 +77,26 @@ warnings checked: none.
 The current fixation set passes. The dashboard task remains active because the
 owner requested iterative debugging before design acceptance.
 
+### Iteration 4 — bilingual analysis pass passed
+
+- Persian/RTL and English/LTR switch immediately from Settings and persist for
+  the next visit. Labels, values, Tehran dates, controls, help, analysis, and
+  footer copy follow the selected language.
+- The status guide explains green/current, yellow/latest-close, and red/old
+  data. It also states that the indicator is not an official market calendar.
+- Dollar, gold, and coin analysis sections render sentences selected by the
+  deterministic Python catalog. The browser only selects the requested
+  language; it does not calculate or choose a conclusion.
+- The footer keeps the dashboard disclaimer and adds the approved MostaHub
+  rights line and ZorgOros design credit.
+- At 1440 px and 393 px, both directions have no horizontal document overflow.
+  The three route cards measure the same height on mobile. A fresh browser
+  session has no console warnings or errors.
+
+Verification: 225 Python tests, 17 UI tests, 4 Sites worker tests, Ruff, Ruff
+format, mypy, and the production build passed. Vite reports only its existing
+non-blocking large-chunk advisory.
+
 ## Follow-up polish
 
 - [P3] Real production history will make the line shapes less regular than the
