@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from typing import Any
 
 from ..analysis import engine
+from ..analysis.dashboard_narratives import select_dashboard_narratives
 from ..domain.enums import AnalysisBasis, ReportType
 from ..jobs.report import base_analysis, prepare
 from ..normalization.validators import validate_snapshot
@@ -116,6 +117,7 @@ class DashboardProjection:
                 # Conclusions are produced by the analysis layer. The browser
                 # only presents them and never reinterprets a market formula.
                 "summary_fa": [signal.summary_fa for signal in analysis.signals[:2]],
+                "narratives": select_dashboard_narratives(analysis.signals),
             }
 
         return {

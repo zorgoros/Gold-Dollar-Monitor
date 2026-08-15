@@ -137,6 +137,18 @@ def test_latest_publishes_short_analysis_conclusions(repo, snapshot, settings):
     assert payload["analysis"]["summary_fa"][0] == payload["analysis"]["signals"][0]["summary_fa"]
 
 
+def test_latest_publishes_bilingual_section_narratives(repo, snapshot, settings):
+    repo.save_snapshot(snapshot(aed=True, coin=True))
+
+    payload = DashboardProjection(repo, settings, clock=lambda: AT).latest()
+
+    narratives = payload["analysis"]["narratives"]
+    assert narratives["overview"]
+    assert narratives["gold"][0]["id"].startswith("gold.")
+    assert narratives["coin"][0]["id"].startswith("coin.")
+    assert set(narratives["gold"][0]["text"]) == {"fa", "en"}
+
+
 @pytest.mark.parametrize("metric", ["coin_premium_world_pct", "secret", ""])
 def test_history_rejects_non_public_metrics(repo, settings, metric):
     with pytest.raises(ValueError, match="unsupported metric"):
