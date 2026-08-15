@@ -96,14 +96,14 @@ SQLite snapshots / metrics / signals
         ↓
 src/market_monitor/web/        read-only Python projection and HTTP endpoints
         ↓ JSON only
-src/market_monitor/web/static/ isolated HTML, CSS, and JavaScript UI
+dashboard/                     isolated React and TypeScript UI
 ```
 
 `web/` owns data projection and HTTP transport. It may depend on repositories,
 settings, reporting models, and the established analysis gate. It does not
 format Telegram text and does not contain CSS or browser interaction logic.
 
-`web/static/` owns layout, Persian labels, browser state, chart rendering, and
+`dashboard/` owns layout, Persian labels, browser state, chart rendering, and
 fetching JSON. It contains no formulas, database calls, provider logic, or
 Telegram code.
 
@@ -116,8 +116,9 @@ contract is under `/api/v1/`:
   points, coverage, and unavailable-series information; and
 - `GET /api/v1/health` — latest snapshot time and dashboard data availability.
 
-The server also serves the static UI for local review. A later hosting decision
-can retain the UI unchanged and point it to a deployed read-only API.
+Vite serves the UI for local review and proxies `/api/v1/` to the Python
+service. A later hosting decision can retain the UI unchanged and point it to a
+deployed read-only API.
 
 ## UX and visual requirements
 

@@ -4,9 +4,9 @@
 
 **Goal:** Build a local, read-only Persian RTL Ayar Market dashboard over the bot's existing data.
 
-**Architecture:** `src/market_monitor/web/` is the only web boundary. Its Python projection reads stored snapshots, metrics, and signals; its server returns JSON and static files. `src/market_monitor/web/static/` is the separate browser UI. It has no SQL, formulas, provider code, or Telegram parsing.
+**Architecture:** `src/market_monitor/web/` is the read-only API boundary. Its Python projection reads stored snapshots, metrics, and signals and returns JSON. `dashboard/` is a separate React and TypeScript application. It has no SQL, formulas, provider code, or Telegram parsing.
 
-**Tech Stack:** Python 3.12+, stdlib WSGI/JSON server, SQLite through `Repository`, vanilla HTML/CSS/ES modules, Canvas 2D charts, pytest, Ruff, mypy, and in-app-browser review.
+**Tech Stack:** Python 3.12+, stdlib WSGI/JSON server, SQLite through `Repository`, React, TypeScript, Vite, Recharts, Phosphor icons, Vitest, pytest, Ruff, mypy, and in-app-browser review.
 
 ## Global Constraints
 
@@ -14,7 +14,7 @@
 - Use existing formulas and reporting gates. Do not add a formula, migration, write endpoint, or runtime dependency.
 - Keep gold-implied USD and AED-implied USD as two separately named routes. Never average them.
 - Detailed analysis must use the current Tehran-session alignment gate. A failed gate returns an unavailable state, not an unaligned comparison.
-- UI files remain under `web/static/`; Python projection and HTTP code remain outside it.
+- UI files remain under top-level `dashboard/`; Python projection and HTTP code remain under `src/market_monitor/web/`.
 - Preserve the existing 201 passing tests.
 
 ---
@@ -32,7 +32,7 @@
 - Consumes: `Repository.latest_snapshot()`, `Settings`, `validate_snapshot()`, `base_analysis()`, `prepare()`, and `widget_payload()`.
 - Produces: `DashboardProjection.latest() -> dict[str, Any]`, `DashboardProjection.history(metric_names: tuple[str, ...], range_key: str) -> dict[str, Any]`, and `Repository.metric_history()`.
 
-- [ ] **Step 1: Write failing repository tests**
+- [x] **Step 1: Write failing repository tests**
 
     def test_metric_history_returns_requested_points_in_time_order(repo, snapshot):
         old_id = repo.save_snapshot(snapshot(at=AT - timedelta(hours=2)))
@@ -47,13 +47,13 @@
             ("usd_market", 185_400.0, AT),
         ]
 
-- [ ] **Step 2: Verify red**
+- [x] **Step 2: Verify red**
 
 Run: `/private/tmp/market-dashboard-venv/bin/python -m pytest tests/integration/test_database.py::test_metric_history_returns_requested_points_in_time_order -q`
 
 Expected: FAIL because `Repository.metric_history` does not exist.
 
-- [ ] **Step 3: Add the minimal typed query**
+- [x] **Step 3: Add the minimal typed query**
 
     @dataclass(frozen=True)
     class MetricHistoryPoint:
@@ -78,13 +78,13 @@ Expected: FAIL because `Repository.metric_history` does not exist.
 
 Keep the empty-name check in the projection so this query always receives a non-empty tuple.
 
-- [ ] **Step 4: Verify green**
+- [x] **Step 4: Verify green**
 
 Run: `/private/tmp/market-dashboard-venv/bin/python -m pytest tests/integration/test_database.py::test_metric_history_returns_requested_points_in_time_order -q`
 
 Expected: PASS.
 
-- [ ] **Step 5: Write failing projection tests**
+- [x] **Step 5: Write failing projection tests**
 
     def test_latest_keeps_usd_reference_routes_separate(repo, snapshot, settings):
         repo.save_snapshot(snapshot(aed=True, coin=True))
@@ -105,13 +105,13 @@ Expected: PASS.
 
 Also test an empty database, missing optional AED/coin data, exclusion of `coin_premium_world_pct`, and an incomplete 30-day history range.
 
-- [ ] **Step 6: Verify red**
+- [x] **Step 6: Verify red**
 
 Run: `/private/tmp/market-dashboard-venv/bin/python -m pytest tests/unit/test_dashboard_projection.py -q`
 
 Expected: FAIL because `market_monitor.web` does not exist.
 
-- [ ] **Step 7: Implement the projection**
+- [x] **Step 7: Implement the projection**
 
     class DashboardProjection:
         def latest(self) -> dict[str, Any]:
@@ -132,7 +132,7 @@ Expected: FAIL because `market_monitor.web` does not exist.
 
 `history()` accepts only `1d`, `7d`, and `30d`, and only an internal allow-list for the shown market/reference metrics. It uses latest-snapshot time as the end, calls `metric_history()`, and returns points plus requested range, earliest stored point, and `coverage_complete`.
 
-- [ ] **Step 8: Verify green and commit**
+- [x] **Step 8: Verify green and commit**
 
 Run: `/private/tmp/market-dashboard-venv/bin/python -m pytest tests/unit/test_dashboard_projection.py tests/integration/test_database.py -q`
 
@@ -155,7 +155,7 @@ Commit: `git commit -m "Add dashboard data projection"`
 - Consumes: `DashboardProjection` from Task 1.
 - Produces: `dashboard_app(projection: DashboardProjection) -> Callable[..., list[bytes]]`, `serve_dashboard(settings: Settings, host: str, port: int) -> None`, and `market-monitor dashboard --host HOST --port PORT`.
 
-- [ ] **Step 1: Write failing HTTP tests**
+- [x] **Step 1: Write failing HTTP tests**
 
     def test_latest_endpoint_returns_json(dashboard_app):
         status, headers, body = request(dashboard_app, "/api/v1/latest")
@@ -170,15 +170,15 @@ Commit: `git commit -m "Add dashboard data projection"`
         assert status == "400 Bad Request"
         assert json.loads(body) == {"error": "unsupported range: 90d"}
 
-Also cover `/api/v1/health`, invalid metric names, missing routes, index/CSS/JS MIME types, and generic 500 behavior.
+Also cover `/api/v1/health`, invalid metric names, missing routes, and generic 500 behavior.
 
-- [ ] **Step 2: Verify red**
+- [x] **Step 2: Verify red**
 
 Run: `/private/tmp/market-dashboard-venv/bin/python -m pytest tests/integration/test_dashboard_server.py -q`
 
 Expected: FAIL because `market_monitor.web.server` does not exist.
 
-- [ ] **Step 3: Implement the server**
+- [x] **Step 3: Implement the server**
 
     def dashboard_app(projection: DashboardProjection) -> Callable[..., list[bytes]]:
         def app(environ: dict[str, Any], start_response: StartResponse) -> list[bytes]:
@@ -189,14 +189,14 @@ Expected: FAIL because `market_monitor.web.server` does not exist.
                 return history_response(environ, start_response, projection)
             if path == "/api/v1/health":
                 return json_response(start_response, "200 OK", projection.health())
-            return static_response(path, start_response)
+            return json_response(start_response, "404 Not Found", {"error": "not found"})
         return app
 
-`static_response()` has an explicit file allow-list. It maps `/` to `index.html`, rejects traversal, and never exposes database paths, errors, provider payloads, or secrets. `history_response()` returns only known request errors as 400 JSON. It returns `{"error": "dashboard unavailable"}` for unexpected failures.
+`history_response()` returns only known request errors as 400 JSON. It returns `{"error": "dashboard unavailable"}` for unexpected failures. Unknown routes return JSON 404 responses. The API never exposes database paths, errors, provider payloads, or secrets.
 
-Add package-data configuration for `web/static/*`. Add one `web/` row to `docs/ops/STRUCTURE.md`. State that `web/static/` is the UI-only directory and `web/` Python files own projection/transport.
+Add rows for `web/` and `dashboard/` to `docs/ops/STRUCTURE.md`. State that `dashboard/` is UI-only and `web/` Python files own projection/transport.
 
-- [ ] **Step 4: Add the CLI command**
+- [x] **Step 4: Add the CLI command**
 
     dashboard = sub.add_parser("dashboard", help="serve the read-only local dashboard")
     dashboard.add_argument("--host", default="127.0.0.1")
@@ -204,7 +204,7 @@ Add package-data configuration for `web/static/*`. Add one `web/` row to `docs/o
 
 `cmd_dashboard()` opens the migrated repository, creates `DashboardProjection`, and calls `serve_dashboard()`. It must not create a Telegram publisher.
 
-- [ ] **Step 5: Verify green and commit**
+- [x] **Step 5: Verify green and commit**
 
 Run: `/private/tmp/market-dashboard-venv/bin/python -m pytest tests/integration/test_dashboard_server.py tests/unit/test_dashboard_projection.py -q`
 
@@ -217,10 +217,10 @@ Commit: `git commit -m "Add dashboard web server"`
 ### Task 3: Option-3 RTL dashboard UI and verification
 
 **Files:**
-- Create: `src/market_monitor/web/static/index.html`
-- Create: `src/market_monitor/web/static/styles.css`
-- Create: `src/market_monitor/web/static/app.js`
-- Create: `tests/unit/test_dashboard_static.py`
+- Create: `dashboard/` Product Design prototype
+- Create: `dashboard/src/Prototype.tsx`
+- Create: `dashboard/src/prototype.css`
+- Create: `dashboard/src/Prototype.test.tsx`
 - Modify: `README.md`
 - Modify: `docs/OPERATIONS.md`
 - Modify: `docs/ops/LEDGER.md`
@@ -230,47 +230,37 @@ Commit: `git commit -m "Add dashboard web server"`
 - Consumes: `/api/v1/latest`, `/api/v1/history`, and public card/analysis JSON only.
 - Produces: a default `بازار` view, a separate `تحلیل` view, and 1D/7D/30D chart controls.
 
-- [ ] **Step 1: Write failing static-contract tests**
+- [x] **Step 1: Bootstrap the prototype and write failing UI tests**
 
-    def test_dashboard_html_declares_rtl_market_and_analysis_views():
-        html = static_file("index.html")
-
-        assert 'lang="fa"' in html and 'dir="rtl"' in html
-        assert 'data-view="market"' in html
-        assert 'data-view="analysis"' in html
-
-    def test_dashboard_script_uses_only_public_endpoints():
-        script = static_file("app.js")
-
-        assert "/api/v1/latest" in script and "/api/v1/history" in script
-        assert "telegram" not in script.lower()
-        assert "3.6725" not in script
+Bootstrap `dashboard/` with the Product Design prototype script. Add component
+tests for RTL rendering, market/analysis tab switching, API-backed cards,
+history range requests, loading, and unavailable states.
 
 Add a README assertion for `market-monitor dashboard` and `read-only`.
 
-- [ ] **Step 2: Verify red**
+- [x] **Step 2: Verify red**
 
-Run: `/private/tmp/market-dashboard-venv/bin/python -m pytest tests/unit/test_dashboard_static.py -q`
+Run: `npm test -- --run`
 
-Expected: FAIL because static files do not exist.
+Expected: FAIL because the dashboard component does not exist.
 
-- [ ] **Step 3: Build the semantic HTML and CSS**
+- [x] **Step 3: Build the semantic HTML and CSS**
 
-Use right-to-left landmarks: header, market/analysis tab buttons, main, live state, price tape, chart, short analysis summary, and analysis panel. Use visible button labels and one `aria-live="polite"` status region.
+Use right-to-left landmarks: header, market/analysis tab buttons, main, live state, price tape, chart, short analysis summary, and analysis panel. Use visible button labels and one `aria-live="polite"` status region. Use Phosphor icons and Recharts; do not hand-draw icons or charts.
 
 Implement the selected option-3 visual system: graphite background, warm text, steel-blue dividers, jade positive movement, vermilion high-gap warning, 8px frames, tabular figures, and grid layout. Stack at 768px and use one column at 375px. Do not use gradients, glass effects, gauges, emoji, or card-inside-card layouts. Respect reduced motion and keyboard focus.
 
-- [ ] **Step 4: Build the minimal interaction layer**
+- [x] **Step 4: Build the minimal interaction layer**
 
-Fetch `/api/v1/latest` on load. Render market cards from API-provided values. Render only the short analysis summary on `بازار`; render detailed analysis only when the JSON state is available. Switch tabs without reload. Range buttons request `/api/v1/history`. Draw a Canvas 2D line chart only from returned points and provide a visible data table for non-canvas readers. Disable ranges with incomplete coverage and show a short Persian message. Keep all UI text free of technical diagnostics.
+Fetch `/api/v1/latest` on load. Render market cards from API-provided values. Render only the short analysis summary on `بازار`; render detailed analysis only when the JSON state is available. Switch tabs without reload. Range buttons request `/api/v1/history`. Draw the chart only from returned points and provide a visible data table for non-chart readers. Disable ranges with incomplete coverage and show a short Persian message. Keep all UI text free of technical diagnostics.
 
-- [ ] **Step 5: Verify green**
+- [x] **Step 5: Verify green**
 
-Run: `/private/tmp/market-dashboard-venv/bin/python -m pytest tests/unit/test_dashboard_static.py -q`
+Run: `npm test -- --run && npm run build`
 
 Expected: PASS.
 
-- [ ] **Step 6: Complete local review and documentation**
+- [x] **Step 6: Complete local review and documentation**
 
 Document `market-monitor dashboard --host 127.0.0.1 --port 8000` in README and OPERATIONS. State that it is local, read-only, and not a production server. Run:
 
@@ -281,10 +271,10 @@ Document `market-monitor dashboard --host 127.0.0.1 --port 8000` in README and O
 
 Start the dashboard with a temporary fixture database. In the in-app browser, check 1440px, 1024px, 768px, and 375px; switch `بازار`/`تحلیل`; change range; check unavailable history; tab through controls; and check the console. Compare 1440px hierarchy with option 3 and fix visual defects.
 
-- [ ] **Step 7: Record and commit**
+- [x] **Step 7: Record and commit**
 
 Mark TASK-007 P1–P3 complete only after all checks pass. Update HANDOFF with final commit, test results, preview result, and merge target. Keep the MEMORY worktree entry until merge/removal.
 
-Stage: `git add src/market_monitor/web/static tests/unit/test_dashboard_static.py README.md docs/OPERATIONS.md docs/ops/LEDGER.md docs/ops/HANDOFF.md`
+Stage: `git add dashboard README.md docs/OPERATIONS.md docs/ops/LEDGER.md docs/ops/HANDOFF.md design-qa.md`
 
 Commit: `git commit -m "Add RTL dashboard interface"`

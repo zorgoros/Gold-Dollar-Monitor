@@ -41,12 +41,27 @@ market-monitor report --dry-run --type analysis   # force one report type
 market-monitor config               # effective schedule, instruments, footer
 market-monitor health               # provider, credential, and database status
 market-monitor db-info              # row counts and latest snapshot
+market-monitor dashboard            # read-only local dashboard API on port 8000
 ```
 
 ```bash
 python -m pytest
 ruff check src tests scripts && ruff format --check src tests scripts && mypy src
 ```
+
+### Local dashboard preview
+
+The dashboard is a separate browser application. The bot owns calculations and
+exposes read-only JSON; the browser does not repeat formulas or parse Telegram
+text.
+
+```bash
+market-monitor dashboard --host 127.0.0.1 --port 8000
+cd dashboard && npm install && npm run dev
+```
+
+Open `http://127.0.0.1:5173`. This server is for local design review, not a
+production deployment. Hosting will be selected after the design is accepted.
 
 ---
 

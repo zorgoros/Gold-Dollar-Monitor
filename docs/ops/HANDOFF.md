@@ -13,6 +13,7 @@ Whoever is working this project — any tools, any number, any roles. Name them
 | Name | Tool | Role |
 |---|---|---|
 | `claude-solo` | Claude Code | builds and maintains the service |
+| `codex-builder` | Codex | dashboard design and implementation |
 
 > Add rows as the roster grows (a `codex-builder`, a reviewer, whatever the
 > work needs). Nothing in `pos` validates the names — this table is the guard.
@@ -64,4 +65,9 @@ Blocked: none — footer channel line stays absent until the channel has a publi
 ## 2026-08-14 · claude-solo
 Did: recorded ten owner ideas in EXTENSIONS.md as Y–AG plus a full entry expanding seeded L (dashboard mode, publishing modes, archive policy, on-demand history, per-destination config, personal chat, refresh/change engine, entitlements, deterministic state machine, AI commentary); all IDEA status, nothing implemented; added a family note under the seeded table
 Next: owner triage — approve/reject individually; AC (destination registry) is the root dependency for the delivery family, AG is blocked on F/G/R
+Blocked: none
+
+## 2026-08-15 21:00 · codex-builder
+Did: built first dashboard in `.worktrees/dashboard-v1` on `codex/dashboard-v1`; added read-only API/history projection and standalone RTL React UI; browser and visual QA passed
+Next: owner reviews `http://127.0.0.1:4173`; after approval, merge `codex/dashboard-v1` into `main` and remove the worktree
 Blocked: none

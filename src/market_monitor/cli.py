@@ -189,6 +189,14 @@ def cmd_db_info(settings: Settings, _: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_dashboard(settings: Settings, args: argparse.Namespace) -> int:
+    """Serve the local read-only JSON API; this command never creates a publisher."""
+    from .web.server import serve_dashboard
+
+    serve_dashboard(settings, args.host, args.port)
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="market-monitor", description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -210,6 +218,9 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("health", help="provider, credential, and database status")
     sub.add_parser("db-info", help="row counts and latest snapshot")
     sub.add_parser("config", help="show the effective schedule, instruments, and footer")
+    dashboard = sub.add_parser("dashboard", help="serve the read-only local dashboard API")
+    dashboard.add_argument("--host", default="127.0.0.1")
+    dashboard.add_argument("--port", type=int, default=8000)
     return parser
 
 
@@ -220,6 +231,7 @@ COMMANDS = {
     "health": cmd_health,
     "db-info": cmd_db_info,
     "config": cmd_config,
+    "dashboard": cmd_dashboard,
 }
 
 

@@ -19,6 +19,8 @@ exist yet; create them when the phase that needs them lands (§35), not before.
 | `src/market_monitor/publishers/` | Telegram and future delivery surfaces | rendering, analysis |
 | `src/market_monitor/jobs/` | collect, report, alerts, health entrypoints | logic worth unit-testing |
 | `src/market_monitor/observability/` | logging setup, health checks | secrets, tokens |
+| `src/market_monitor/web/` | read-only dashboard projection and JSON transport | browser layout, calculations, writes |
+| `dashboard/` | React/Vite RTL dashboard UI and its tests | SQL, formulas, provider or Telegram logic |
 | `config/` | `default.toml` — thresholds, schedules, display, footer | secrets, `.env` |
 | `migrations/` | forward schema migrations | hand-applied SQL |
 | `tests/unit/` `tests/integration/` `tests/fixtures/` | tests and captured provider payloads | live network calls |
@@ -32,7 +34,8 @@ exist yet; create them when the phase that needs them lands (§35), not before.
 
 Root holds only: `README.md`, `ARCHITECTURE.md`, `EXTENSIONS.md`,
 `CHANGELOG.md`, `LICENSE`, `CLAUDE.md`, `AGENTS.md`, `.env.example`,
-`.gitignore`, `pyproject.toml`, the lock file, and an optional `Makefile`.
+`.gitignore`, `pyproject.toml`, the lock file, the `dashboard/` application,
+and an optional `Makefile`.
 
 **Branches.** `main` is the code. `market-data` is an orphan branch holding only
 the SQLite database, kept to a single commit — never merge it, never branch off

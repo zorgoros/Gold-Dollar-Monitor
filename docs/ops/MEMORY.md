@@ -27,3 +27,4 @@ Budget is 60 lines; `pos` warns past that.
 - 2026-08-12 — the stored metrics series is always computed from inputs as collected, never from an aligned analysis: session alignment reads xau_usd back out of it, so writing aligned values in would create a feedback loop
 - 2026-08-12 — there is no interactive Telegram bot; the integration is publish-only sendMessage. config/default.toml plus `market-monitor config` is the entire admin surface, by decision, not omission
 - 2026-08-12 — `pos` is not installed on this machine; the ops files in docs/ops/ are maintained by hand in their documented formats
+- 2026-08-15 — the first dashboard is isolated at `.worktrees/dashboard-v1` on branch `codex/dashboard-v1`, based on `c54438c`; merge that branch into `main` only after owner design approval, then remove the worktree

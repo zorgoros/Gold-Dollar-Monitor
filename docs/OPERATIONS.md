@@ -67,6 +67,19 @@ Migrations run automatically on every command; the database is created on first
 use at `data/market.db`. `DATABASE_URL` takes `sqlite:///relative/to/repo` or
 `sqlite:////absolute/path` — the fourth slash is what makes it absolute.
 
+## Local dashboard review
+
+Run the JSON API and browser application in separate terminals:
+
+```bash
+.venv/bin/market-monitor dashboard --host 127.0.0.1 --port 8000
+cd dashboard && npm install && npm run dev
+```
+
+The API has GET-only `/api/v1/latest`, `/api/v1/history`, and `/api/v1/health`
+routes. It reads the configured SQLite database and never starts Telegram. Vite
+proxies the API during local review. Neither service is a production server.
+
 ## Configuration
 
 Everything an operator is meant to change lives in `config/default.toml`; there

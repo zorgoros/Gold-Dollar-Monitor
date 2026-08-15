@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -17,6 +18,15 @@ from ..domain.enums import (
 from ..domain.errors import DatabaseError
 from ..domain.models import Metric, Quote, Report, Signal, Snapshot
 from ..timeutil import from_iso, now_utc, to_iso
+
+
+@dataclass(frozen=True)
+class MetricHistoryPoint:
+    """One stored metric observation for a dashboard time series."""
+
+    name: str
+    value: float
+    at: datetime
 
 
 class Repository:
@@ -152,6 +162,28 @@ class Repository:
         if row is None:
             return None
         return float(row["metric_value"]), from_iso(row["created_at"])
+
+    def metric_history(
+        self, names: tuple[str, ...], start: datetime, end: datetime
+    ) -> list[MetricHistoryPoint]:
+        """Return selected metric points in stable chronological order."""
+        if not names:
+            return []
+        placeholders = ", ".join("?" for _ in names)
+        rows = self.conn.execute(
+            "SELECT metric_name, metric_value, created_at FROM metrics "
+            f"WHERE metric_name IN ({placeholders}) AND created_at BETWEEN ? AND ? "
+            "ORDER BY created_at, metric_name",
+            (*names, to_iso(start), to_iso(end)),
+        ).fetchall()
+        return [
+            MetricHistoryPoint(
+                name=str(row["metric_name"]),
+                value=float(row["metric_value"]),
+                at=from_iso(row["created_at"]),
+            )
+            for row in rows
+        ]
 
     def latest_snapshot(self) -> Snapshot | None:
         row = self.conn.execute(

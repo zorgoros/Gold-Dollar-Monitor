@@ -50,6 +50,21 @@ def test_metric_near_returns_nothing_outside_tolerance(repo, snapshot):
     assert repo.metric_near("usd_market", AT - timedelta(days=7), timedelta(hours=12)) is None
 
 
+def test_metric_history_returns_requested_points_in_time_order(repo, snapshot):
+    old_at = AT - timedelta(hours=2)
+    old_id = repo.save_snapshot(snapshot(at=old_at))
+    new_id = repo.save_snapshot(snapshot(at=AT))
+    repo.save_metrics(old_id, [Metric("usd_market", 180_000.0, "toman/usd", "1.2")], old_at)
+    repo.save_metrics(new_id, [Metric("usd_market", 185_400.0, "toman/usd", "1.2")], AT)
+
+    points = repo.metric_history(("usd_market",), AT - timedelta(days=1), AT)
+
+    assert [(point.name, point.value, point.at) for point in points] == [
+        ("usd_market", 180_000.0, old_at),
+        ("usd_market", 185_400.0, AT),
+    ]
+
+
 def _report(key: str) -> Report:
     return Report(
         report_type=ReportType.SCHEDULED_SUMMARY,
