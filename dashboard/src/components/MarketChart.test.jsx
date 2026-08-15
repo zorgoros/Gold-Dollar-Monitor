@@ -1,11 +1,18 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { ChartTooltip, chartRows, historyDomain, timeTicks } from "./MarketChart.jsx";
+import { formatChartDate, formatClock, formatNumber } from "../format.js";
 
 const start = "2026-08-05T09:30:00+00:00";
 const end = "2026-08-12T09:30:00+00:00";
 
 describe("MarketChart time semantics", () => {
+  it("formats English values and Tehran timestamps without changing the time zone", () => {
+    expect(formatNumber(185400, "en")).toBe("185,400");
+    expect(formatClock("2026-08-12T09:30:00+00:00", "en")).toBe("13:00");
+    expect(formatChartDate("2026-08-12T09:30:00+00:00", "en")).toContain("August");
+  });
+
   it("keeps database timestamps on a numeric axis inside the requested window", () => {
     const rows = chartRows({
       usd_market: [{ at: "2026-08-11T09:30:00+00:00", value: 185400 }],
