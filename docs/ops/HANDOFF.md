@@ -81,3 +81,8 @@ Blocked: none
 Did: completed the approved bilingual pass on `codex/dashboard-v1` in `.worktrees/dashboard-v1`; UI owns Persian/English presentation while Python selects stable premade narratives for overview, gold, and coin; added status-color help, hover hints, and the MostaHub/ZorgOros legal footer; 225 Python, 17 UI, 4 Sites tests and 393/1440 browser QA passed
 Next: owner reviews `http://127.0.0.1:4173` and reports the next fixation; keep the branch/worktree isolated and do not merge, push, deploy, or remove it
 Blocked: none
+
+## 2026-08-15 23:35 · codex-builder
+Did: after explicit owner approval, pushed `codex/dashboard-v1` to `origin` and set upstream tracking; no pull request, merge, deployment, or worktree removal was performed
+Next: owner reviews the pushed dashboard branch and reports the next fixation; keep the worktree isolated until design acceptance
+Blocked: none
