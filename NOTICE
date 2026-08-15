@@ -1,29 +1,85 @@
-Gold-Dollar-Monitor
+Gold-Dollar-Monitor — عیار مارکت · Ayar Market
 Copyright (c) 2026 zorgoros
 https://github.com/zorgoros/Gold-Dollar-Monitor
 
-Licensed under the MIT License (see LICENSE).
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU Affero General Public License as published by the Free
+Software Foundation, either version 3 of the License, or (at your option) any
+later version.
 
-ATTRIBUTION IN PUBLISHED OUTPUT
--------------------------------
-Every report this software publishes carries an attribution line:
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE. See the GNU Affero General Public License for more details.
 
-    Gold-Dollar-Monitor · github.com/zorgoros/Gold-Dollar-Monitor
+You should have received a copy of the GNU Affero General Public License along
+with this program. If not, see <https://www.gnu.org/licenses/>.
 
-It is defined in `src/market_monitor/domain/constants.py` (ATTRIBUTION) and a
-test asserts its presence, so removing it takes a deliberate code change that
-breaks the test suite.
 
-If you run this software, or a fork of it, and publish its reports, please keep
-that line. Operators who want their own channel named in the footer should set
-`[reporting].channel_note` in `config/default.toml` — it is added above the
-attribution, not instead of it.
+WHY THE AFFERO LICENCE
+----------------------
+This software's normal mode of use is as a network service: it publishes to a
+Telegram channel, and its readers never receive a copy of it. Under a plain GPL
+that use would carry no obligation at all, because nothing is distributed.
 
-This is a request, not a licence condition. The MIT licence permits removal,
-and no open-source licence can prevent it. It is asked in good faith.
+AGPL section 13 closes that. Anyone who runs a modified version of this bot,
+for any audience, must offer that audience the modified source. Running it is
+the trigger, not shipping it.
+
+
+ADDITIONAL TERM UNDER AGPL SECTION 7(b)
+---------------------------------------
+As permitted by section 7(b) of the GNU Affero General Public License, this is
+an additional term applying to this work and to every modified version of it:
+
+    Published reports must carry the attribution line
+
+        Gold-Dollar-Monitor · github.com/zorgoros/Gold-Dollar-Monitor
+
+    or, in a modified version, the equivalent line naming the origin of this
+    work, as an Appropriate Legal Notice in the published output.
+
+The line is defined as ATTRIBUTION in `src/market_monitor/domain/constants.py`,
+and a test asserts its presence in every published report.
+
+This term was a request under the previous MIT licence and could not be
+enforced. It is now a condition of the licence. Removing the attribution from a
+distributed or network-deployed version removes the permission to use this
+software at all.
+
+Operators who want their own channel named may set `[reporting].channel_note`
+in `config/default.toml`. That line is added above the attribution, never
+instead of it.
+
+
+RELICENSING HISTORY
+-------------------
+Versions up to and including v1.2.1 (commit b543aad) were published under the
+MIT licence. That grant is irrevocable for the commits it covered: anyone who
+obtained those versions under MIT keeps their MIT rights to them. This change
+governs this commit onward.
+
+The copyright is held by a single author, so no contributor agreement was
+required to make this change.
+
+
+COMMERCIAL USE
+--------------
+The AGPL permits commercial use. It does not permit closed-source commercial
+use: a company may run this bot as a paid service, but must then publish its
+modified source to its users under the same licence.
+
+The copyright holder may grant separate commercial terms on request. Being the
+sole author, he is not bound by the AGPL when licensing his own work.
+
+
+THIRD-PARTY COMPONENTS
+----------------------
+httpx (BSD-3-Clause) is the only runtime dependency. It is compatible with the
+AGPL and is not redistributed by this project.
+
 
 THIRD-PARTY DATA
 ----------------
 Market data is retrieved at runtime from third-party services (TGJU,
-gold-api.com). That data is not covered by this licence and is not
-redistributed by this project. See DISCLAIMER.md.
+gold-api.com). That data is not covered by this licence, is not owned by this
+project, and is not redistributed by it. See DISCLAIMER.md.

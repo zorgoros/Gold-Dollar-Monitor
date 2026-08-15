@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Daily local copy of the collector's database (docs/OPERATIONS.md, "Backup").
+
+  launchd rather than cron: cron is deprecated on macOS and needs Full Disk
+  Access granted by hand. launchd also runs a missed StartCalendarInterval job
+  once when the machine next wakes, which is what makes a laptop an acceptable
+  place to keep the second copy at all.
+
+  Install (edit the two paths first if the clone lives elsewhere):
+
+    cp deploy/launchd/com.zorgoros.market-monitor-backup.plist ~/Library/LaunchAgents/
+    launchctl load ~/Library/LaunchAgents/com.zorgoros.market-monitor-backup.plist
+    launchctl start com.zorgoros.market-monitor-backup    # prove it now
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.zorgoros.market-monitor-backup</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/mostafasaeedan/My Programing Projects/Market-situation/scripts/backup_remote_db.sh</string>
+    </array>
+
+    <!-- 22:00 local, after the 21:00 Tehran collection run closes the day. -->
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key><integer>22</integer>
+        <key>Minute</key><integer>0</integer>
+    </dict>
+
+    <!-- A LaunchAgent gets a minimal PATH; git lives in /usr/bin. -->
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>/Users/mostafasaeedan/market-monitor-backups/backup.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/mostafasaeedan/market-monitor-backups/backup.log</string>
+</dict>
+</plist>

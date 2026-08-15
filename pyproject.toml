@@ -6,6 +6,11 @@ build-backend = "setuptools.build_meta"
 name = "market-monitor"
 version = "0.1.0"
 description = "Iran market monitor — deterministic price indicators published to Telegram"
+# AGPL, not GPL: this runs as a network service, so distribution never happens
+# and a plain GPL would bind nobody. See NOTICE for the section 7(b) attribution
+# term that comes with it.
+license = "AGPL-3.0-or-later"
+license-files = ["LICENSE", "NOTICE"]
 requires-python = ">=3.12"
 dependencies = ["httpx>=0.27"]
 

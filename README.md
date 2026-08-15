@@ -1,7 +1,7 @@
 # Gold-Dollar-Monitor
 
 [![CI](https://github.com/zorgoros/Gold-Dollar-Monitor/actions/workflows/ci.yml/badge.svg)](https://github.com/zorgoros/Gold-Dollar-Monitor/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](LICENSE)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/downloads/)
 
 **عیار مارکت · Ayar Market** — fetches Iranian and global market prices on a
@@ -41,7 +41,15 @@ market-monitor report --dry-run --type analysis   # force one report type
 market-monitor config               # effective schedule, instruments, footer
 market-monitor health               # provider, credential, and database status
 market-monitor db-info              # row counts and latest snapshot
+market-monitor backfill --dry-run   # count the daily closes TGJU would import
+market-monitor backfill             # import the last 365 Tehran sessions
 ```
+
+`backfill` replays TGJU's daily OHLC series through the same store-then-derive
+path collection uses, so a fresh install has trends and a gap distribution
+instead of waiting a month for them. It is re-runnable: a session already stored
+is skipped. `--days 0` takes everything TGJU has — a decade, and a database
+roughly twenty times larger.
 
 ```bash
 python -m pytest
@@ -199,7 +207,27 @@ Calibration needs the backtesting work in [EXTENSIONS.md](EXTENSIONS.md) (F, G).
 
 ## Licence, attribution, and legal
 
-MIT — see [LICENSE](LICENSE). Not affiliated with TGJU or any data provider.
+**AGPL-3.0-or-later** — see [LICENSE](LICENSE) and [NOTICE](NOTICE). Not
+affiliated with TGJU or any data provider.
+
+This bot's normal use is as a network service: readers get its reports, never a
+copy of it. A plain GPL would impose nothing on that use, because nothing is
+distributed. AGPL section 13 does — **anyone who runs a modified version, for
+any audience, must offer that audience the modified source.**
+
+The attribution line in every published report is a **licence condition** under
+AGPL section 7(b), not a request:
+
+```
+Gold-Dollar-Monitor · github.com/zorgoros/Gold-Dollar-Monitor
+```
+
+Removing it removes the permission to use this software. Operators who want
+their own channel named should set `[reporting].channel_note` — it is added
+above the attribution, never instead of it.
+
+Versions up to v1.2.1 were MIT and stay MIT for anyone who obtained them. See
+[NOTICE](NOTICE) for the full relicensing note and for commercial terms.
 
 **This is not financial advice.** The software computes arithmetic
 relationships between published prices; it does not forecast or recommend.
