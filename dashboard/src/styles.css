@@ -130,6 +130,9 @@ td:not(:first-child) { direction: ltr; text-align: right; font-variant-numeric: 
 .analysis-summary { margin-top: 14px; padding: 16px 18px; background: #6388e60b; border-inline-start: 2px solid var(--blue); }
 .analysis-summary > strong { display: block; color: #c6d4f6; font-size: .72rem; }
 .analysis-summary p { margin: 7px 0 0 !important; color: #b6c0c5 !important; line-height: 1.9; }
+.analysis-context { margin-top: 16px; padding: 15px 18px; background: #6388e60b; border-inline-start: 2px solid var(--blue); }
+.analysis-context > strong { display: block; color: #c6d4f6; font-size: .72rem; }
+.analysis-context p { margin: 7px 0 0; color: #b6c0c5; font-size: .74rem; line-height: 1.9; }
 .analysis-block, .signal-list { padding: 22px 26px; }
 .section-title { display: flex; justify-content: space-between; align-items: center; }
 .section-title h3, .section-title p { margin: 0; }

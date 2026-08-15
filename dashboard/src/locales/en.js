@@ -102,6 +102,13 @@ export const en = {
     confidence: "Confidence",
     context: "Analytical context",
     contextUnavailable: "No reliable analytical conclusion is available for this section.",
+    classifications: {
+      ABOVE_REFERENCE: "The market price is above the reference.",
+      BELOW_REFERENCE: "The market price is below the reference.",
+      NEAR_REFERENCE: "The market price is near the reference.",
+      POSITIVE_PREMIUM: "The market price has a positive premium.",
+      NEGATIVE_PREMIUM: "The market price is below intrinsic value.",
+    },
   },
   settings: {
     button: "Settings",

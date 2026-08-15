@@ -102,6 +102,13 @@ export const fa = {
     confidence: "اطمینان",
     context: "نتیجه تحلیلی",
     contextUnavailable: "برای این بخش نتیجه تحلیلی قابل اتکا موجود نیست.",
+    classifications: {
+      ABOVE_REFERENCE: "قیمت بازار بالاتر از مرجع است.",
+      BELOW_REFERENCE: "قیمت بازار پایین‌تر از مرجع است.",
+      NEAR_REFERENCE: "قیمت بازار نزدیک مرجع است.",
+      POSITIVE_PREMIUM: "قیمت بازار دارای حباب مثبت است.",
+      NEGATIVE_PREMIUM: "قیمت بازار پایین‌تر از ارزش ذاتی است.",
+    },
   },
   settings: {
     button: "تنظیمات",
