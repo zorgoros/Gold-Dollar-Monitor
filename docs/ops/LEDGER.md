@@ -40,15 +40,38 @@ the dedup gate and the ID sequence.
 
 ### Notes
 
-## GAP-002 · backfill command from spec section 30 is not implemented · OPEN
+## GAP-002 · backfill command from spec section 30 is not implemented · DONE
 **Family:** backfill,cli,history,tgju,import
 **Raised:** 2026-08-12
 **Summary:** backfill command from spec section 30 is not implemented
 
 ### Phases
-- [ ] P1 — scope it
+- [x] P1 — `TgjuProvider.fetch_history`: daily OHLC per symbol, same units, same conversion
+- [x] P2 — `jobs/backfill.py`: one snapshot per Tehran session, oldest first, then the live derive path
+- [x] P3 — CLI `backfill --days/--dry-run`, idempotent re-runs, docs and ledger
 
 ### Notes
+Reuses the whole live path rather than a parallel one: same `SYMBOLS` map, same
+`to_canonical`, same `analyze` + `store_analytics`, so imported and collected
+rows are one homogeneous series. Verified live: 294 sessions imported in 5.5s,
+and the 2026-08-11 coin premium came out +1.09% — the figure MEMORY.md recorded
+independently on 2026-08-13.
+
+Two things this change had to fix rather than work around:
+
+* `Repository.last_value` ordered by `retrieved_at`, so a backfill's thousands
+  of rows retrieved *now* but observed years ago would have handed the live jump
+  check an arbitrary decade-old price and made it reject every honest quote.
+  It orders by `COALESCE(source_timestamp, retrieved_at)` now, which is what
+  "last value" always meant.
+* Four places in prose claimed a price nobody stored can never be back-filled.
+  True of an intraday tick, false of a daily close. Corrected in `OPERATIONS.md`
+  (x2), `jobs/collect.py`, and `BACKTESTING.md`.
+
+Not built, deliberately: intraday history (the source publishes none), and any
+scheduled/automatic invocation — this is an operator command, and on the Actions
+deployment the database is force-pushed every run, so the range is a cost
+decision a human makes. `--days 0` is ~3,400 sessions and ~19 MB.
 
 ## GAP-003 · rial instruments are single-sourced on TGJU with no independent fallback · OPEN
 **Family:** providers,tgju,fallback,redundancy,rial,resilience

@@ -35,7 +35,8 @@ git push origin --delete market-data
 The runner has no persistent disk, so each job fetches that branch into `_data/`,
 points `DATABASE_URL` at it, and pushes it back. The push runs even when the
 pipeline step fails: raw observations are stored before anything derives from
-them, and a dropped collection is the one loss that cannot be back-filled.
+them, and a dropped collection loses an intraday observation that no source
+sells back. Only the daily close is recoverable, via `backfill`.
 
 ### The two guards before the push
 
@@ -109,8 +110,9 @@ market-monitor config
 | `[freshness]`, `[analysis]` | the gate's thresholds and windows |
 
 The three instrument sets are independent on purpose: collection is the widest,
-so history accumulates for instruments nothing displays or analyses yet. A
-price nobody stored is the one thing that cannot be back-filled.
+so history accumulates for instruments nothing displays or analyses yet. An
+intraday price nobody stored is the one thing that cannot be back-filled — TGJU
+sells back the daily close and nothing finer.
 
 ## Deploy (Docker)
 
@@ -219,8 +221,9 @@ ever carries a placeholder dash.
    gets `⚠️ تحلیل این نوبت منتشر نشد…` — no numbers.
 
 Step 4 fires on a fresh install until roughly a day of history exists, which is
-expected. In steady state the 21:00 and 09:00 runs bracket a 17:00 close well
-inside the tolerance, so a closed-session analysis finds its ounce.
+expected — or until `market-monitor backfill` supplies it. In steady state the
+21:00 and 09:00 runs bracket a 17:00 close well inside the tolerance, so a
+closed-session analysis finds its ounce.
 
 Why this matters concretely: pairing a live ounce with the previous Iranian
 close made the Emami coin read as trading 2.8% *below* its own metal content on
@@ -248,12 +251,43 @@ rewritten.
 
 ## Backup and restore
 
+Under the GitHub deployment the database is **one commit**, amended and
+force-pushed 26 times a day. The two pre-push guards stop a bad push; nothing
+there survives the branch being deleted. The second copy is local:
+
+```bash
+scripts/backup_remote_db.sh                     # -> ~/market-monitor-backups
+```
+
+It fetches `market-data`, writes the committed blob to a temporary file, and
+hands that to `backup_db.sh` for the copy itself. It never pushes and never
+touches the working tree.
+
+A launchd agent runs it daily at 22:00 local, after the 21:00 Tehran collection
+closes the day:
+
+```bash
+cp deploy/launchd/com.zorgoros.market-monitor-backup.plist ~/Library/LaunchAgents/
+launchctl load ~/Library/LaunchAgents/com.zorgoros.market-monitor-backup.plist
+```
+
+launchd rather than cron because cron is deprecated on macOS, and because
+launchd runs a missed calendar job once when the machine next wakes. **The
+accepted limit: a machine that is off does not back up.** A backup taken most
+days beats one taken never; if that stops being enough, the answer is the VPS
+deployment below, not a cleverer laptop.
+
+Log: `~/market-monitor-backups/backup.log`. Check it occasionally — a silent
+failure here is invisible until the day it matters.
+
+On a VPS instead, the database is local and there is no branch to fetch:
+
 ```bash
 scripts/backup_db.sh /var/backups/market-monitor      # daily, via cron
 ```
 
-It uses `sqlite3 .backup`, which is safe against a live writer, then gzips and
-prunes beyond 30 days. Restore:
+Both paths use `sqlite3 .backup`, which is safe against a live writer, then gzip
+and prune beyond 30 days. Restore:
 
 ```bash
 systemctl stop market-monitor.timer
@@ -262,8 +296,40 @@ gunzip -c /var/backups/market-monitor/market-2026-08-12.db.gz > data/market.db
 systemctl start market-monitor.timer
 ```
 
-Test a restore occasionally. The accumulated raw history is the asset here —
-prices can be re-fetched only for today, never for last month.
+Test a restore occasionally. The accumulated raw history is the asset here. A
+lost *daily close* can be re-imported from TGJU (see below); a lost intraday
+observation is gone, because nobody but us wrote it down.
+
+## Backfilling history
+
+```bash
+market-monitor backfill --dry-run     # count sessions, write nothing
+market-monitor backfill               # the last 365 Tehran sessions
+market-monitor backfill --days 0      # everything TGJU has, back to 2013
+```
+
+TGJU publishes a daily OHLC series per symbol (`docs/PROVIDERS.md`, endpoint 3).
+`backfill` replays it through the same store-then-derive path collection uses:
+one snapshot per Tehran session, stamped at `[analysis].tehran_session_close`,
+then the same metrics and signals the live pipeline writes. That is what gives a
+fresh install working trends, and what gives §7's provisional thresholds a real
+distribution to be replaced by.
+
+Operational notes:
+
+- **Re-runnable.** A session already stored is skipped, so running it twice is a
+  no-op and running it again next month adds only what is new.
+- **Daily granularity, not intraday.** One row per session, which is all the
+  source publishes. It does not compete with collection: the newest history row
+  is the *previous* session's close.
+- **Size.** A year is ~300 sessions and ~1.5 MB. `--days 0` is ~3,400 sessions
+  and ~19 MB — and on the Actions deployment that file is force-pushed on every
+  run, so decide the range with the push cost in mind, not just the disk.
+- **The ounce is carried back, never forward.** Tehran trades Saturday–Wednesday
+  and the metal Monday–Friday, so only about two thirds of Iranian sessions have
+  an ounce printed the same day. A Saturday close is paired with Friday's ounce —
+  the last one the world had set — up to 4 days back, and the session is skipped
+  entirely beyond that. It is the same rule the live gate applies.
 
 ## Troubleshooting
 
@@ -277,7 +343,7 @@ prices can be re-fetched only for today, never for last month.
 | Yen looks ~100× too small on the board | `price_jpy` read per-yen instead of per-100 | the source unit must be `rial/100jpy`; see `docs/PROVIDERS.md` |
 | `AuthenticationError` from Telegram | bad token, or bot is not a channel admin | re-check `.env`; add the bot to the channel as admin |
 | `duplicate` | the slot already went out | intended; use a different slot or bump `model_version` |
-| No trend section in the analysis | fewer than 24h of history | expected on a new install; the section appears once history exists |
+| No trend section in the analysis | fewer than 24h of history | expected on a new install; `market-monitor backfill` imports it, or wait for it to accumulate |
 | `no report slot due` | run fired away from every configured slot | intended noise control; `--type` forces one |
 
 ## Logs

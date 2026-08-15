@@ -21,13 +21,13 @@ import json
 import logging
 import secrets
 from collections.abc import Iterable
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
 import httpx
 
 from ..domain.enums import Instrument, Unit
-from ..domain.errors import ProviderParseError
+from ..domain.errors import MarketMonitorError, ProviderParseError
 from ..domain.models import Quote
 from ..normalization.units import parse_number, to_canonical
 from ..timeutil import TEHRAN, now_utc
@@ -37,6 +37,17 @@ log = logging.getLogger(__name__)
 
 BASE_URL = "https://call1.tgju.org/ajax.json"
 FALLBACK_URL = "https://call3.tgju.org/ajax.json"
+
+# Daily OHLC history, a different host and a different shape from ajax.json.
+# Returns the entire series on every call — 640 KB for the dollar, 2 MB for the
+# ounce — so it is a backfill source only, never a polling one (§8.2,
+# docs/PROVIDERS.md endpoint 3).
+HISTORY_URL = "https://api.tgju.org/v1/market/indicator/summary-table-data/{symbol}"
+
+# Its rows are DataTables positional arrays with no field names, so the two
+# columns we read are written down once here rather than as bare subscripts.
+HISTORY_CLOSE = 3
+HISTORY_DATE = 6
 
 # instrument -> (provider symbol, unit the provider reports it in)
 SYMBOLS: dict[Instrument, tuple[str, Unit]] = {
@@ -117,6 +128,66 @@ class TgjuProvider:
                 metadata={"source_unit": source_unit.value},
             )
         return quotes
+
+    def fetch_history(self, instrument: Instrument) -> dict[date, Quote]:
+        """Every daily close TGJU still publishes for one instrument.
+
+        Backfill only. The newest row is the previous session's close, so this
+        is never a source of a current price — `fetch_quotes` is.
+
+        Each close is stamped midnight Tehran, which is TGJU's own marker for
+        "the session of that date" (see `_parse_ts`); `analysis.session
+        .session_anchor` is what moves it to the hour the prices were set. The
+        units are the same ones `ajax.json` quotes, so they go through the same
+        conversion — a history row is rial too.
+        """
+        mapping = SYMBOLS.get(instrument)
+        if mapping is None:
+            return {}
+        symbol, source_unit = mapping
+        response = http_get(self._client, HISTORY_URL.format(symbol=symbol))
+        try:
+            rows = response.json()["data"]
+        except (ValueError, KeyError, TypeError) as exc:
+            raise ProviderParseError(f"TGJU history for {symbol} has no 'data' rows") from exc
+
+        retrieved_at = now_utc()
+        history: dict[date, Quote] = {}
+        unreadable = 0
+        for row in rows:
+            try:
+                day = datetime.strptime(row[HISTORY_DATE], "%Y/%m/%d").date()
+                raw = str(row[HISTORY_CLOSE])
+                value, unit = to_canonical(instrument, parse_number(raw), source_unit)
+            except (IndexError, TypeError, ValueError, MarketMonitorError):
+                # One malformed row out of four thousand is not a reason to lose
+                # the other 3,999. An endpoint that changed shape entirely
+                # yields an empty series, which the caller reports as such.
+                unreadable += 1
+                continue
+            history[day] = Quote(
+                instrument=instrument,
+                provider=self.name,
+                provider_symbol=symbol,
+                raw_value=raw,
+                normalized_value=value,
+                unit=unit,
+                currency="USD" if instrument is Instrument.XAU_USD else "IRT",
+                retrieved_at=retrieved_at,
+                source_timestamp=datetime(day.year, day.month, day.day, tzinfo=TEHRAN),
+                raw_payload_hash=hashlib.sha256(
+                    json.dumps(row, sort_keys=True, ensure_ascii=False).encode()
+                ).hexdigest()[:16],
+                # `granularity` is what tells a later reader that this row is a
+                # session close rather than one of the day's 48 live ticks.
+                metadata={"source_unit": source_unit.value, "granularity": "daily_close"},
+            )
+        if unreadable:
+            log.warning(
+                "history_rows_unreadable",
+                extra={"provider": self.name, "provider_symbol": symbol, "rows": unreadable},
+            )
+        return history
 
     def health_check(self) -> bool:
         try:

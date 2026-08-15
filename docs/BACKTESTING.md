@@ -31,6 +31,27 @@ arrives (EXTENSIONS F and G).
    would have published nothing must not contribute signals to the sample.
    Including them measures a system that does not exist and inflates coverage.
 
+## The series is not evenly sampled
+
+`market-monitor backfill` (GAP-002) imports TGJU's daily closes, so the `metrics`
+table now mixes two sampling densities: roughly one row per Tehran session for
+imported history, and one per 30 minutes for whatever was collected live. Three
+consequences a backtest must handle rather than average over:
+
+1. **Weight by session, not by row.** A month of live collection contributes ~40x
+   the rows a backfilled month does. Counting rows makes the recent regime the
+   whole sample.
+2. **A backfilled row is a close, so its `quality_status` is `OK`.** It is not a
+   quote that happened to be fresh at collection time — freshness does not apply
+   to a session close. Rule 4 above still excludes live `STALE`/`SUSPECT` rows;
+   it must not be read as a claim that every `OK` row was a live tick.
+   `quotes.metadata_json` carries `"granularity": "daily_close"` — that is the
+   field that separates the two populations.
+3. **Its ounce may be carried back up to four days.** Tehran and the metal keep
+   different weeks; `jobs/backfill.py` pairs a session with the most recent prior
+   ounce close. That is the same rule the live gate applies, but the gap is days
+   rather than hours, so it belongs in the reported sample description.
+
 ## Method
 
 For each historical snapshot: reconstruct state as of `t`, compute the signal

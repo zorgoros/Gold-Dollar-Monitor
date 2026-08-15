@@ -10,6 +10,7 @@ from datetime import datetime
 from .domain.enums import ReportType
 from .domain.errors import MarketMonitorError
 from .domain.models import Snapshot
+from .jobs.backfill import backfill
 from .jobs.collect import build_chain, collect
 from .jobs.report import base_analysis, due_report_types, prepare, publish, store_analytics
 from .normalization.validators import SnapshotVerdict
@@ -181,6 +182,33 @@ def cmd_health(settings: Settings, _: argparse.Namespace) -> int:
     return 0 if ok else 1
 
 
+def cmd_backfill(settings: Settings, args: argparse.Namespace) -> int:
+    """Import TGJU's daily closes so trends and calibration have history to read."""
+    repo = _repo(settings)
+    job = repo.start_job("backfill")
+    try:
+        result = backfill(repo, settings, days=args.days, dry_run=args.dry_run)
+    except MarketMonitorError as exc:
+        repo.finish_job(job, "FAILED", type(exc).__name__, str(exc))
+        log.error("backfill_failed", exc_info=True)
+        print(f"{type(exc).__name__}: {exc}", file=sys.stderr)
+        return 1
+    repo.finish_job(
+        job,
+        "OK",
+        metadata={
+            "sessions": result.sessions,
+            "skipped_existing": result.skipped_existing,
+            "dry_run": args.dry_run,
+        },
+    )
+    span = f"{result.first} → {result.last}" if result.first else "nothing new"
+    print(f"{'would import' if args.dry_run else 'imported'} {result.sessions} sessions — {span}")
+    print(f"  already stored  {result.skipped_existing}")
+    print(f"  no aligned ounce {result.skipped_no_ounce}")
+    return 0
+
+
 def cmd_db_info(settings: Settings, _: argparse.Namespace) -> int:
     repo = _repo(settings)
     print(f"database {settings.db_path}")
@@ -207,6 +235,18 @@ def build_parser() -> argparse.ArgumentParser:
             help="force one report type instead of the slots due now",
         )
 
+    history = sub.add_parser("backfill", help="import TGJU daily closes into the history")
+    history.add_argument(
+        "--days",
+        type=int,
+        default=365,
+        help="how far back to import (default 365; 0 imports everything TGJU has,"
+        " which is a decade and a much larger database)",
+    )
+    history.add_argument(
+        "--dry-run", action="store_true", help="count what would be imported, write nothing"
+    )
+
     sub.add_parser("health", help="provider, credential, and database status")
     sub.add_parser("db-info", help="row counts and latest snapshot")
     sub.add_parser("config", help="show the effective schedule, instruments, and footer")
@@ -217,6 +257,7 @@ COMMANDS = {
     "fetch": cmd_fetch,
     "report": cmd_report,
     "run-once": cmd_run_once,
+    "backfill": cmd_backfill,
     "health": cmd_health,
     "db-info": cmd_db_info,
     "config": cmd_config,

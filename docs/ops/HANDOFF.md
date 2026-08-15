@@ -101,3 +101,8 @@ Blocked: none
 Did: checked current Codex project-removal guidance; official docs do not document the UI control
 Next: provide removal steps if needed
 Blocked: none
+
+## 2026-08-15 23:05 · claude-solo
+Did: GAP-002 closed — `market-monitor backfill` imports TGJU's daily OHLC history through the live store-then-derive path (TgjuProvider.fetch_history, jobs/backfill.py, CLI --days/--dry-run, idempotent); fixed Repository.last_value ordering which a backfill would otherwise have broken for live collection; corrected four "cannot be back-filled" claims in prose; 224 tests green, ruff/mypy clean; live run imported 294 sessions in 5.5s and reproduced the recorded +1.09% coin premium for 2026-08-11
+Next: get the `last_value` fix onto `main` BEFORE any backfilled database reaches `market-data` — old code plus backfilled rows makes the live jump check compare against an arbitrary decade-old price and reject every honest quote. Then import 365 days into the branch database (owner chose that range; local `data/market.db` already has it, both CI guards pass on it)
+Blocked: none — threshold recalibration off the imported distribution was explicitly deferred; recorded against EXTENSIONS G/S/F rather than as a new ledger entry, per the dedup rule

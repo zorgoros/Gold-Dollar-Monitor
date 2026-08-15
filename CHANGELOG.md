@@ -1,5 +1,60 @@
 # Changelog
 
+## Unreleased
+
+**`market-monitor backfill` — history is no longer only what we watched happen**
+(GAP-002, spec §30)
+
+- TGJU publishes a daily OHLC series per symbol going back to 2011–2014
+  (2011 for the dollar, 1979 for the ounce). `backfill` replays it through the
+  same store-then-derive path collection uses — same symbol map, same unit
+  conversion, same `analyze`, same model version — so imported and collected
+  rows are one homogeneous series rather than two.
+- One snapshot per Tehran session, stamped at `[analysis].tehran_session_close`.
+  Daily is all the source publishes; nothing intraday is invented. The ounce is
+  carried back up to 4 days, never forward, because Tehran trades Saturday–
+  Wednesday and the metal Monday–Friday and only two thirds of sessions have an
+  ounce printed the same day.
+- Re-runnable: a session already stored is skipped. `--days` bounds the range
+  (365 by default, `0` for everything), because on the Actions deployment the
+  database is force-pushed on every run and a decade is ~19 MB.
+- `model_version` unchanged. No formula moved; this adds observations, not
+  arithmetic.
+
+**Fix: `last_value` ordered by insertion time, not observation time**
+
+The jump check compared a new quote against `ORDER BY retrieved_at DESC`. A
+backfill inserts thousands of rows retrieved now but observed years ago, so that
+ordering would have fed it an arbitrary old price and rejected every honest live
+quote. It orders by `COALESCE(source_timestamp, retrieved_at)` now.
+
+**Relicensed from MIT to AGPL-3.0-or-later**
+
+This software's normal use is as a network service: readers receive its reports,
+never a copy of it. Under MIT — or under a plain GPL — that use carried no
+obligation at all, because nothing is distributed. AGPL section 13 does: anyone
+running a modified version, for any audience, must offer that audience the
+modified source.
+
+- The report attribution line is now a **licence condition** under AGPL section
+  7(b), not a request. It was unenforceable under MIT, and `NOTICE` said so in
+  as many words. Removing it now removes the permission to use the software.
+- Versions up to and including v1.2.1 (`b543aad`) stay MIT for anyone who
+  obtained them. An MIT grant cannot be withdrawn from the commits it covered.
+- Single copyright holder, so no contributor agreement was needed. `httpx`
+  (BSD-3-Clause) is AGPL-compatible.
+- The AGPL permits commercial use, but not closed-source commercial use.
+  Separate commercial terms remain available from the copyright holder.
+
+**Local backup of the collected history**
+
+The `market-data` branch is a single force-pushed commit; the pre-push guards
+protect the push, not the branch. New `scripts/backup_remote_db.sh` fetches the
+committed database and hands it to the existing `backup_db.sh` for a dated,
+gzipped, 30-day-pruned copy. A launchd agent in `deploy/launchd/` runs it daily
+at 22:00 local. A machine that is off does not back up — an accepted limit,
+recorded rather than engineered around.
+
 ## 1.2.1 — 2026-08-15
 
 No formula changed, no indicator was added, and no report gained a section.

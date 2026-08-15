@@ -75,6 +75,32 @@ their equal in importance — without it there is no basis for `P`. `AG` is HIGH
 for the same reason and sits downstream of all three: a state taxonomy built on
 provisional thresholds is a pile of confident claims resting on guesses.
 
+**What changed on 2026-08-15 (GAP-002).** `F`, `G`, `S`, `T` and `R` were all
+waiting on the same missing thing — a historical dataset — and `market-monitor
+backfill` now supplies one: TGJU's daily closes back to 2013, replayed through
+the live derive path, so every gap series has years of stored values instead of
+days. The blocker on this family is no longer *data*. It is method, and method
+is a separate decision from the import, deliberately not taken here:
+
+- Fitting bands on the whole history and then reading them back over that same
+  history is the look-ahead trap `docs/BACKTESTING.md` rule 2 exists to stop.
+  Whatever `G` becomes must fit before `t` and test after it.
+- The imported series is unevenly sampled — one row per session historically,
+  one per 30 minutes for live collection. Percentiles taken row-wise would be
+  percentiles of the last few weeks. `docs/BACKTESTING.md` has the three
+  consequences.
+- A year of imported history says `usd_gap_pct` ran −3.8% to +7.0% and
+  `coin_premium_domestic_pct` −0.04% to +15.2%. The shipped bands (1 / 3 / 7)
+  are not obviously wrong against that, which is exactly why replacing them is
+  worth doing properly rather than quickly.
+- Any change here moves what the channel calls NEUTRAL versus EXPENSIVE, so it
+  bumps `model_version` and fragments the series at that point. That is a
+  release decision, not a tuning one.
+
+Whoever picks this up: expand `G` into the full template above first, and settle
+`F` alongside it — a threshold nobody has backtested is the same guess with more
+arithmetic on top.
+
 `Y` through `AF` are the product/delivery family — how and to whom the engine
 publishes. They form one dependency chain: `AC` (a destination registry) is the
 root, `Y` and `AE` are the mechanism, `Z` routes between them, and `AA`, `AB`,

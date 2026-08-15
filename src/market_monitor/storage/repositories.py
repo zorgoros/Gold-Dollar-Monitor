@@ -39,13 +39,31 @@ class Repository:
         return int(row["id"])
 
     def last_value(self, instrument: Instrument) -> float | None:
-        """Most recent stored value, used to catch a parser producing a 10x jump."""
+        """Most recent stored value, used to catch a parser producing a 10x jump.
+
+        Ordered by when the price was *observed*, not when the row was written.
+        A backfill inserts thousands of rows retrieved just now but observed
+        years ago (jobs/backfill.py); ordering on `retrieved_at` would hand the
+        jump check an arbitrary one of them and reject every honest live quote
+        afterwards.
+        """
         row = self.conn.execute(
             "SELECT normalized_value FROM quotes WHERE instrument_id = ?"
-            " ORDER BY retrieved_at DESC LIMIT 1",
+            " ORDER BY COALESCE(source_timestamp, retrieved_at) DESC LIMIT 1",
             (self.instrument_id(instrument),),
         ).fetchone()
         return float(row["normalized_value"]) if row else None
+
+    def snapshot_at_exists(self, at: datetime) -> bool:
+        """Whether a snapshot is already stored at exactly this instant.
+
+        Backfill computes each session's instant deterministically, so this is
+        what makes re-running it a no-op instead of a second copy of history.
+        """
+        row = self.conn.execute(
+            "SELECT 1 FROM snapshots WHERE snapshot_at = ? LIMIT 1", (to_iso(at),)
+        ).fetchone()
+        return row is not None
 
     # ---------------------------------------------------------------- writes
     def save_snapshot(self, snapshot: Snapshot) -> int:

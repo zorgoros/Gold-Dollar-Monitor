@@ -50,7 +50,8 @@ def collect(
     optional = settings.instrument_list("instruments", "optional")
     # Collection is the widest of the three sets on purpose: an instrument that
     # is neither displayed nor analysed is still stored, because the one thing
-    # that cannot be back-filled later is a price nobody wrote down (§27).
+    # that cannot be back-filled later is an intraday price nobody wrote down
+    # (§27). jobs/backfill.py recovers daily closes and nothing finer.
     wanted = mandatory + optional
 
     now = now_utc()

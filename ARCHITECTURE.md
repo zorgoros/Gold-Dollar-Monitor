@@ -96,8 +96,9 @@ feedback loop.
 
 **Three enablement sets, not one.** Collection, display, and analysis are
 configured independently (`[instruments]`, `[display]`). Collection is the
-widest: instruments are stored that nothing yet reads, because a price nobody
-recorded cannot be back-filled. This realises the §3 note that the data model
+widest: instruments are stored that nothing yet reads, because an intraday price
+nobody recorded cannot be back-filled — `backfill` (§30) recovers TGJU's daily
+closes and nothing finer. This realises the §3 note that the data model
 must allow arbitrary future instruments without schema redesign — v1.1 added
 four instruments with four `INSERT`s and no DDL.
 
