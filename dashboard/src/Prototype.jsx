@@ -8,26 +8,23 @@ import { MarketChart } from "./components/MarketChart.jsx";
 import { PriceCard } from "./components/PriceCard.jsx";
 import { SettingsButton, SettingsPanel, useDashboardSettings } from "./components/SettingsPanel.jsx";
 import { SiteFooter } from "./components/SiteFooter.jsx";
+import { LocaleProvider, useLocale } from "./components/LocaleProvider.jsx";
 import { formatNumber, formatPercent, formatTime } from "./format.js";
 
-const RANGES = [
-  { key: "1d", label: "۱ روز" },
-  { key: "7d", label: "۷ روز" },
-  { key: "30d", label: "۳۰ روز" },
-];
+const RANGES = ["1d", "7d", "30d"];
 
 const PRIMARY_CARDS = new Set(["USD_IRT", "GOLD_18K", "XAU_USD", "EMAMI_COIN"]);
 
-const REFERENCE_HELP = {
-  gold: "ارزش دلاری محاسبه‌شده از قیمت طلای ۱۸ عیار و اونس جهانی است. این مسیر یک مرجع مقایسه است، نه نرخ پیشنهادی خرید یا فروش.",
-  aed: "ارزش دلاری محاسبه‌شده از نرخ درهم و برابری ثابت دلار به درهم است. این مسیر مستقل از مسیر طلا محاسبه می‌شود.",
-};
-
 export function Prototype() {
-  return <HelpProvider><Dashboard /></HelpProvider>;
+  const [settings, updateSetting] = useDashboardSettings();
+  return (
+    <LocaleProvider language={settings.language}>
+      <HelpProvider><Dashboard settings={settings} updateSetting={updateSetting} /></HelpProvider>
+    </LocaleProvider>
+  );
 }
 
-function Dashboard() {
+function Dashboard({ settings, updateSetting }) {
   const [view, setView] = useState("market");
   const [latest, setLatest] = useState(null);
   const [history, setHistory] = useState(null);
@@ -35,12 +32,15 @@ function Dashboard() {
   const [error, setError] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [settings, updateSetting] = useDashboardSettings();
   const { enabled: helpEnabled } = useHelp();
+  const { copy, direction, language } = useLocale();
 
   useEffect(() => {
-    document.documentElement.lang = "fa";
-    document.documentElement.dir = "rtl";
+    document.documentElement.lang = language;
+    document.documentElement.dir = direction;
+  }, [direction, language]);
+
+  useEffect(() => {
     const controller = new AbortController();
     getLatest(controller.signal).then(setLatest).catch((reason) => {
       if (reason.name !== "AbortError") setError(true);
@@ -74,16 +74,16 @@ function Dashboard() {
   );
 
   if (error || latest?.state === "NO_DATA") {
-    return <main className="center-state unavailable"><WarningCircle weight="duotone" /><h1>داده بازار در دسترس نیست</h1><p>پس از ثبت اولین داده، داشبورد به‌صورت خودکار آماده می‌شود.</p></main>;
+    return <main className="center-state unavailable"><WarningCircle weight="duotone" /><h1>{copy.app.unavailableTitle}</h1><p>{copy.app.unavailableBody}</p></main>;
   }
 
   return (
     <div className="app-shell">
       <header className="topbar">
-        <div className="brand"><span className="brand-mark"><TrendUp weight="bold" /></span><div><h1>عیار مارکت</h1><p>نمای هوشمند بازار</p></div></div>
-        <nav className="view-tabs" aria-label="نمای داشبورد" role="tablist">
-          <button role="tab" aria-selected={view === "market"} onClick={() => setView("market")}>بازار</button>
-          <button role="tab" aria-selected={view === "analysis"} onClick={() => setView("analysis")}>تحلیل</button>
+        <div className="brand"><span className="brand-mark"><TrendUp weight="bold" /></span><div><h1>{copy.app.name}</h1><p>{copy.app.tagline}</p></div></div>
+        <nav className="view-tabs" aria-label={`${copy.app.name} ${copy.tabs.market}`} role="tablist">
+          <button role="tab" aria-selected={view === "market"} title={copy.hints.marketTab} onClick={() => setView("market")}>{copy.tabs.market}</button>
+          <button role="tab" aria-selected={view === "analysis"} title={copy.hints.analysisTab} onClick={() => setView("analysis")}>{copy.tabs.analysis}</button>
         </nav>
         <div className="status-tools">
           <DataStatus status={latest?.data_status} fallbackAt={latest?.as_of} />
@@ -91,39 +91,40 @@ function Dashboard() {
         </div>
       </header>
 
-      {helpEnabled && <div className="help-mode-banner">حالت راهنما روشن است. نشان‌های «؟» را برای توضیح هر بخش انتخاب کنید.</div>}
+      {helpEnabled && <div className="help-mode-banner">{copy.help.banner}</div>}
 
       <main>
-        {!latest ? <div className="loading-grid">در حال دریافت داده بازار…</div> : view === "market" ? (
+        {!latest ? <div className="loading-grid">{copy.app.loading}</div> : view === "market" ? (
           <>
-            <section className="price-grid" aria-label="قیمت‌های اصلی">{visibleCards.map((card) => <PriceCard key={card.instrument} card={card} />)}</section>
+            <section className="price-grid" aria-label={copy.cards.region}>{visibleCards.map((card) => <PriceCard key={card.instrument} card={card} />)}</section>
             <section className="market-layout">
               <article className="chart-panel">
-                <header className="panel-header"><div><p className="eyebrow">مقایسه سه مسیر</p><h2>دلار بازار و ارزش‌های مرجع</h2></div><div className="range-control" aria-label="بازه نمودار">{RANGES.map((item) => <button key={item.key} aria-pressed={range === item.key} onClick={() => setRange(item.key)}>{item.label}</button>)}</div></header>
+                <header className="panel-header"><div><p className="eyebrow">{copy.chart.eyebrow}</p><h2>{copy.chart.title}</h2></div><div className="range-control" aria-label={copy.chart.rangeLabel}>{RANGES.map((key) => <button key={key} aria-pressed={range === key} title={copy.chart.rangeHints[key]} onClick={() => setRange(key)}>{copy.chart.ranges[key]}</button>)}</div></header>
                 <MarketChart history={history} loading={historyLoading} tooltipsEnabled={settings.chartTooltips} />
-                {history && !history.coverage_complete && <p className="coverage-note"><Clock /> سابقه کامل این بازه هنوز در پایگاه داده جمع نشده است.</p>}
+                {history && !history.coverage_complete && <p className="coverage-note"><Clock /> {copy.chart.coverage}</p>}
               </article>
               <aside className="insight-panel">
-                <header><span><ChartLineUp weight="duotone" /></span><div><p className="eyebrow">تحلیل کوتاه</p><h2>فاصله قیمت از مرجع</h2></div></header>
+                <header><span><ChartLineUp weight="duotone" /></span><div><p className="eyebrow">{copy.insight.eyebrow}</p><h2>{copy.insight.title}</h2></div></header>
                 {usd?.references?.map((reference) => {
-                  const title = reference.name === "gold" ? "مسیر طلا" : "مسیر درهم";
+                  const title = reference.name === "gold" ? copy.insight.gold : copy.insight.aed;
+                  const body = reference.name === "gold" ? copy.insight.goldHelp : copy.insight.aedHelp;
                   return (
-                    <HelpTarget className="reference-row" title={title} body={REFERENCE_HELP[reference.name]} key={reference.name}>
-                      <div><span>{title}</span><strong>{formatNumber(reference.implied_value)}</strong></div>
-                      <b className={reference.gap_pct > 0 ? "positive" : "negative"}>{formatPercent(reference.gap_pct)}</b>
+                    <HelpTarget className="reference-row" title={title} body={body} key={reference.name}>
+                      <div><span>{title}</span><strong>{formatNumber(reference.implied_value, language)}</strong></div>
+                      <b className={reference.gap_pct > 0 ? "positive" : "negative"}>{formatPercent(reference.gap_pct, language)}</b>
                     </HelpTarget>
                   );
                 })}
-                <p className="insight-copy">دو مسیر مستقل هستند. اختلاف آن‌ها جهت فشار بازار را نشان می‌دهد، نه یک نرخ ترکیبی.</p>
-                <button className="text-button" onClick={() => setView("analysis")}>مشاهده تحلیل کامل <span aria-hidden="true">←</span></button>
+                <p className="insight-copy">{copy.insight.copy}</p>
+                <button className="text-button" title={copy.hints.fullAnalysis} onClick={() => setView("analysis")}>{copy.insight.fullAnalysis} <span aria-hidden="true">←</span></button>
               </aside>
             </section>
-            {settings.showTable && <section className="detail-table-wrap"><header><div><p className="eyebrow">جزئیات بازار</p><h2>قیمت، تغییر و کیفیت داده</h2></div><span className="model-tag">مدل {latest.model_version}</span></header><div className="table-scroll"><table><thead><tr><th>دارایی</th><th>قیمت بازار</th><th>تغییر</th><th>مرجع اصلی</th><th>وضعیت</th></tr></thead><tbody>{tableCards.map((card) => <tr key={card.instrument}><td>{card.instrument}</td><td>{formatNumber(card.market_value)}</td><td>{card.change_since_previous_pct == null ? "—" : formatPercent(card.change_since_previous_pct)}</td><td>{card.references?.[0] ? formatNumber(card.references[0].implied_value) : "—"}</td><td><span className="quality-dot" /> معتبر</td></tr>)}</tbody></table></div></section>}
+            {settings.showTable && <section className="detail-table-wrap"><header><div><p className="eyebrow">{copy.table.eyebrow}</p><h2>{copy.table.title}</h2></div><span className="model-tag">{copy.table.model} {latest.model_version}</span></header><div className="table-scroll"><table><thead><tr><th>{copy.table.headers.asset}</th><th>{copy.table.headers.market}</th><th>{copy.table.headers.change}</th><th>{copy.table.headers.reference}</th><th>{copy.table.headers.state}</th></tr></thead><tbody>{tableCards.map((card) => <tr key={card.instrument}><td>{copy.cards.instruments[card.instrument] ?? card.instrument}</td><td>{formatNumber(card.market_value, language)}</td><td>{card.change_since_previous_pct == null ? "—" : formatPercent(card.change_since_previous_pct, language)}</td><td>{card.references?.[0] ? formatNumber(card.references[0].implied_value, language) : "—"}</td><td><span className="quality-dot" /> {copy.table.valid}</td></tr>)}</tbody></table></div></section>}
           </>
         ) : <AnalysisView analysis={latest.analysis} />}
       </main>
 
-      <SiteFooter asOf={formatTime(latest?.as_of)} onOpenSettings={() => setSettingsOpen(true)} />
+      <SiteFooter asOf={formatTime(latest?.as_of, language)} onOpenSettings={() => setSettingsOpen(true)} />
       <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} settings={settings} onChange={updateSetting} />
       <HelpDialog />
     </div>

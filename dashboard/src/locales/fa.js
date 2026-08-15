@@ -28,6 +28,7 @@ export const fa = {
     notCalendar: "این نشان، ساعت رسمی باز یا بسته بودن بازار نیست.",
   },
   cards: {
+    region: "قیمت‌های اصلی",
     instruments: {
       USD_IRT: "دلار آزاد",
       GOLD_18K: "طلای ۱۸ عیار",
@@ -135,6 +136,6 @@ export const fa = {
     latest: "آخرین داده:",
     disclaimer: "این صفحه گزارش داده است و توصیه خرید یا فروش نیست.",
     rights: "© ۲۰۲۵–۲۰۲۶ MostaHub. تمامی حقوق محفوظ است.",
-    designedBy: "طراحی: ZorgOros.",
+    designedBy: "طراحی‌شده توسط ZorgOros.",
   },
 };

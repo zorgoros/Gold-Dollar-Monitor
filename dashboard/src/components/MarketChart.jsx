@@ -10,11 +10,12 @@ import {
   YAxis,
 } from "recharts";
 import { formatAxisTime, formatChartDate, formatClock, formatNumber, formatTime } from "../format.js";
+import { useLocale } from "./LocaleProvider.jsx";
 
 const LINES = [
-  { key: "usd_market", label: "دلار بازار", color: "#f0b83c" },
-  { key: "usd_gold_implied", label: "مسیر طلا", color: "#6388e6" },
-  { key: "usd_aed_implied", label: "مسیر درهم", color: "#61c985" },
+  { key: "usd_market", color: "#f0b83c" },
+  { key: "usd_gold_implied", color: "#6388e6" },
+  { key: "usd_aed_implied", color: "#61c985" },
 ];
 
 export function chartRows(series = {}) {
@@ -41,19 +42,20 @@ export function timeTicks(history, count = 6) {
 }
 
 export function ChartTooltip({ active, label, payload, enabled = true }) {
+  const { copy, direction, language } = useLocale();
   if (!enabled || !active || !payload?.length) return null;
   return (
-    <div className="chart-tooltip" dir="rtl">
+    <div className="chart-tooltip" dir={direction}>
       <header>
-        <strong data-testid="tooltip-date">{formatChartDate(label)}</strong>
-        <span data-testid="tooltip-clock" dir="ltr">{formatClock(label)}</span>
+        <strong data-testid="tooltip-date">{formatChartDate(label, language)}</strong>
+        <span data-testid="tooltip-clock" dir="ltr">{formatClock(label, language)}</span>
       </header>
       {payload.map((entry) => {
         const line = LINES.find((item) => item.key === entry.dataKey);
         return (
           <div className="chart-tooltip-row" key={entry.dataKey} style={{ color: entry.color }}>
-            <span>{line?.label ?? entry.dataKey}</span>
-            <b>{formatNumber(entry.value)}</b>
+            <span>{copy.chart.lines[line?.key] ?? entry.dataKey}</span>
+            <b>{formatNumber(entry.value, language)}</b>
           </div>
         );
       })}
@@ -62,14 +64,15 @@ export function ChartTooltip({ active, label, payload, enabled = true }) {
 }
 
 export function MarketChart({ history, loading, tooltipsEnabled = true }) {
+  const { copy, language } = useLocale();
   const rows = useMemo(() => chartRows(history?.series), [history]);
   const domain = useMemo(() => historyDomain(history), [history]);
   const ticks = useMemo(() => timeTicks(history), [history]);
-  if (loading) return <div className="chart-state">در حال دریافت روند…</div>;
-  if (!rows.length) return <div className="chart-state">برای این بازه داده کافی نیست.</div>;
+  if (loading) return <div className="chart-state">{copy.chart.loading}</div>;
+  if (!rows.length) return <div className="chart-state">{copy.chart.empty}</div>;
   return (
     <>
-      <div className="chart-canvas" aria-label="نمودار مقایسه مسیرهای دلار">
+      <div className="chart-canvas" aria-label={copy.chart.aria}>
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={rows} margin={{ top: 14, right: 8, bottom: 4, left: 4 }}>
             <CartesianGrid stroke="#233039" vertical={false} strokeDasharray="2 8" />
@@ -81,7 +84,7 @@ export function MarketChart({ history, loading, tooltipsEnabled = true }) {
               ticks={ticks}
               allowDataOverflow
               tickCount={6}
-              tickFormatter={(value) => formatAxisTime(value, history.range)}
+              tickFormatter={(value) => formatAxisTime(value, history.range, language)}
               stroke="#647078"
               tickLine={false}
             />
@@ -94,7 +97,7 @@ export function MarketChart({ history, loading, tooltipsEnabled = true }) {
               width={46}
             />
             <Tooltip content={<ChartTooltip enabled={tooltipsEnabled} />} />
-            <Legend formatter={(key) => LINES.find((line) => line.key === key)?.label ?? key} />
+            <Legend formatter={(key) => copy.chart.lines[key] ?? key} />
             {LINES.map((line) => (
               <Line key={line.key} dataKey={line.key} stroke={line.color} strokeWidth={2.5} dot={false} connectNulls activeDot={{ r: 4 }} />
             ))}
@@ -102,9 +105,9 @@ export function MarketChart({ history, loading, tooltipsEnabled = true }) {
         </ResponsiveContainer>
       </div>
       <table className="sr-only-table">
-        <caption>داده‌های نمودار</caption>
-        <thead><tr><th>زمان</th>{LINES.map((line) => <th key={line.key}>{line.label}</th>)}</tr></thead>
-        <tbody>{rows.map((row) => <tr key={row.at}><td>{formatTime(row.at)}</td>{LINES.map((line) => <td key={line.key}>{row[line.key] == null ? "—" : formatNumber(row[line.key])}</td>)}</tr>)}</tbody>
+        <caption>{copy.chart.tableCaption}</caption>
+        <thead><tr><th>{copy.chart.time}</th>{LINES.map((line) => <th key={line.key}>{copy.chart.lines[line.key]}</th>)}</tr></thead>
+        <tbody>{rows.map((row) => <tr key={row.at}><td>{formatTime(row.at, language)}</td>{LINES.map((line) => <td key={line.key}>{row[line.key] == null ? "—" : formatNumber(row[line.key], language)}</td>)}</tr>)}</tbody>
       </table>
     </>
   );

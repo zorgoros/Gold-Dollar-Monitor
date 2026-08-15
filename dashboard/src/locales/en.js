@@ -28,6 +28,7 @@ export const en = {
     notCalendar: "This indicator is not an official market-hours calendar.",
   },
   cards: {
+    region: "Primary prices",
     instruments: {
       USD_IRT: "Free-market dollar",
       GOLD_18K: "18K gold",

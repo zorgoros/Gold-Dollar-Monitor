@@ -81,6 +81,35 @@ const latest = {
       },
     ],
     summary_fa: ["دلار بازار پایین‌تر از مسیرهای مرجع است."],
+    narratives: {
+      overview: [
+        {
+          id: "usd.references.disagree",
+          text: {
+            fa: "مسیرهای طلا و درهم تصویر یکسانی نشان نمی‌دهند.",
+            en: "The gold and dirham paths do not show the same picture.",
+          },
+        },
+      ],
+      gold: [
+        {
+          id: "gold.below_theoretical",
+          text: {
+            fa: "طلای داخلی پایین‌تر از ارزش نظری مدل است.",
+            en: "Domestic gold is below the model value.",
+          },
+        },
+      ],
+      coin: [
+        {
+          id: "coin.positive_premium",
+          text: {
+            fa: "فاصله مثبت، حباب داخلی سکه را نشان می‌دهد.",
+            en: "The positive gap is the domestic coin premium.",
+          },
+        },
+      ],
+    },
   },
 };
 
@@ -174,6 +203,48 @@ describe("Prototype", () => {
 
     expect(screen.queryByText("سکه امامی")).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "قیمت، تغییر و کیفیت داده" })).not.toBeInTheDocument();
+  });
+
+  it("switches the full dashboard to English and LTR", async () => {
+    globalThis.fetch = mockApi();
+    render(<Prototype />);
+    await screen.findAllByText("۱۸۵٬۴۰۰");
+
+    fireEvent.click(screen.getByRole("button", { name: "تنظیمات" }));
+    fireEvent.click(screen.getByRole("radio", { name: "English" }));
+
+    expect(document.documentElement).toHaveAttribute("lang", "en");
+    expect(document.documentElement).toHaveAttribute("dir", "ltr");
+    expect(screen.getByRole("heading", { name: "Ayar Market" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Market" })).toBeInTheDocument();
+    expect(screen.getByText("Old data")).toBeInTheDocument();
+    expect(screen.getAllByText("185,400").length).toBeGreaterThan(0);
+  });
+
+  it("explains every data-status color in contextual help", async () => {
+    globalThis.fetch = mockApi();
+    render(<Prototype />);
+    await screen.findAllByText("۱۸۵٬۴۰۰");
+
+    fireEvent.click(screen.getByRole("button", { name: "راهنمای صفحه" }));
+    fireEvent.click(screen.getByRole("button", { name: "راهنمای وضعیت داده" }));
+
+    const dialog = screen.getByRole("dialog", { name: "وضعیت داده" });
+    expect(dialog).toHaveTextContent("سبز");
+    expect(dialog).toHaveTextContent("زرد");
+    expect(dialog).toHaveTextContent("قرمز");
+    expect(dialog).toHaveTextContent("ساعت رسمی");
+  });
+
+  it("adds action hints and the approved legal footer", async () => {
+    globalThis.fetch = mockApi();
+    render(<Prototype />);
+    await screen.findAllByText("۱۸۵٬۴۰۰");
+
+    expect(screen.getByRole("button", { name: "تنظیمات" })).toHaveAttribute("title");
+    expect(screen.getByRole("button", { name: "۷ روز" })).toHaveAttribute("title");
+    expect(screen.getByText(/تمامی حقوق محفوظ است/)).toBeInTheDocument();
+    expect(screen.getByText(/ZorgOros/)).toBeInTheDocument();
   });
 
   it("requests a new history range without reloading the page", async () => {

@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { ChartTooltip, chartRows, historyDomain, timeTicks } from "./MarketChart.jsx";
 import { formatChartDate, formatClock, formatNumber } from "../format.js";
+import { LocaleProvider } from "./LocaleProvider.jsx";
 
 const start = "2026-08-05T09:30:00+00:00";
 const end = "2026-08-12T09:30:00+00:00";
@@ -28,11 +29,13 @@ describe("MarketChart time semantics", () => {
 
   it("separates the Persian date from the clock in the tooltip", () => {
     render(
-      <ChartTooltip
-        active
-        label={Date.parse("2026-08-11T15:30:00+00:00")}
-        payload={[{ dataKey: "usd_market", value: 185400, color: "#f0b83c" }]}
-      />,
+      <LocaleProvider language="fa">
+        <ChartTooltip
+          active
+          label={Date.parse("2026-08-11T15:30:00+00:00")}
+          payload={[{ dataKey: "usd_market", value: 185400, color: "#f0b83c" }]}
+        />
+      </LocaleProvider>,
     );
 
     const date = screen.getByTestId("tooltip-date");

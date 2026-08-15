@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { GearSix, X } from "@phosphor-icons/react";
+import { useLocale } from "./LocaleProvider.jsx";
 
 const STORAGE_KEY = "ayar-dashboard-settings-v1";
 const DEFAULT_SETTINGS = {
+  language: "fa",
   reduceMotion: false,
   chartTooltips: true,
   showCoin: true,
@@ -44,29 +46,35 @@ function Toggle({ name, label, checked, onChange }) {
 }
 
 export function SettingsButton({ onClick }) {
-  return <button className="icon-button" type="button" aria-label="تنظیمات" onClick={onClick}><GearSix /></button>;
+  const { copy } = useLocale();
+  return <button className="icon-button" type="button" aria-label={copy.settings.button} title={copy.hints.settings} onClick={onClick}><GearSix /></button>;
 }
 
 export function SettingsPanel({ open, onClose, settings, onChange }) {
+  const { copy } = useLocale();
   if (!open) return null;
   return (
-    <aside className="settings-panel" role="dialog" aria-modal="true" aria-label="تنظیمات داشبورد">
+    <aside className="settings-panel" role="dialog" aria-modal="true" aria-label={copy.settings.dialog}>
       <header>
-        <div><p>نمایش و دسترس‌پذیری</p><h2>تنظیمات</h2></div>
-        <button type="button" className="dialog-close" aria-label="بستن تنظیمات" onClick={onClose}><X /></button>
+        <div><p>{copy.settings.eyebrow}</p><h2>{copy.settings.title}</h2></div>
+        <button type="button" className="dialog-close" aria-label={copy.settings.close} title={copy.hints.closeSettings} onClick={onClose}><X /></button>
       </header>
       <div className="settings-group">
-        <h3>ابزارها</h3>
-        <Toggle name="chartTooltips" label="راهنمای شناور نمودار" checked={settings.chartTooltips} onChange={onChange} />
-        <Toggle name="showCoin" label="نمایش کارت سکه امامی" checked={settings.showCoin} onChange={onChange} />
-        <Toggle name="showTable" label="نمایش جدول جزئیات" checked={settings.showTable} onChange={onChange} />
+        <h3>{copy.settings.tools}</h3>
+        <Toggle name="chartTooltips" label={copy.settings.chartTooltips} checked={settings.chartTooltips} onChange={onChange} />
+        <Toggle name="showCoin" label={copy.settings.showCoin} checked={settings.showCoin} onChange={onChange} />
+        <Toggle name="showTable" label={copy.settings.showTable} checked={settings.showTable} onChange={onChange} />
       </div>
       <div className="settings-group">
-        <h3>دسترس‌پذیری</h3>
-        <Toggle name="reduceMotion" label="کاهش حرکت" checked={settings.reduceMotion} onChange={onChange} />
-        <Toggle name="highContrast" label="کنتراست بیشتر" checked={settings.highContrast} onChange={onChange} />
+        <h3>{copy.settings.accessibility}</h3>
+        <Toggle name="reduceMotion" label={copy.settings.reduceMotion} checked={settings.reduceMotion} onChange={onChange} />
+        <Toggle name="highContrast" label={copy.settings.highContrast} checked={settings.highContrast} onChange={onChange} />
       </div>
-      <div className="settings-language"><span>زبان</span><strong>فارسی</strong><small>English در نسخه بعد</small></div>
+      <fieldset className="settings-language">
+        <legend>{copy.settings.language}</legend>
+        <label><input type="radio" name="language" value="fa" checked={settings.language === "fa"} onChange={() => onChange("language", "fa")} /> {copy.settings.persian}</label>
+        <label><input type="radio" name="language" value="en" checked={settings.language === "en"} onChange={() => onChange("language", "en")} /> {copy.settings.english}</label>
+      </fieldset>
     </aside>
   );
 }
