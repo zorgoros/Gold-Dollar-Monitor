@@ -248,12 +248,24 @@ class Repository:
         )
 
     # ---------------------------------------------------------------- reports
-    def already_delivered(self, report_key: str) -> bool:
-        row = self.conn.execute(
-            "SELECT 1 FROM reports WHERE report_key = ? AND delivery_status = ? LIMIT 1",
+    def delivered_report(self, report_key: str) -> sqlite3.Row | None:
+        """The row for the message this key already put on the channel, if any.
+
+        The partial unique index makes it at most one. It is the message rather
+        than an archive of it — see `mark_report_edited` — so its
+        `telegram_message_id` is where a later run in the same slot goes to find
+        what to edit. That is why editing needs no registry of its own: a slot's
+        message and a slot's report row have exactly the same lifetime.
+        """
+        row: sqlite3.Row | None = self.conn.execute(
+            "SELECT id, snapshot_id, telegram_message_id FROM reports"
+            " WHERE report_key = ? AND delivery_status = ? LIMIT 1",
             (report_key, DeliveryStatus.SENT.value),
         ).fetchone()
-        return row is not None
+        return row
+
+    def already_delivered(self, report_key: str) -> bool:
+        return self.delivered_report(report_key) is not None
 
     def save_report(self, report: Report) -> int:
         cur = self.conn.execute(
@@ -282,6 +294,27 @@ class Repository:
         except sqlite3.IntegrityError as exc:
             # The partial unique index fired: another run delivered this key first.
             raise DatabaseError(f"report key already delivered: {exc}") from exc
+
+    def mark_report_edited(
+        self, report_id: int, report: Report, message_id: int | None = None
+    ) -> None:
+        """Point a delivered row at the render now standing on the channel.
+
+        An edit replaces what the reader can see, so the row follows it rather
+        than accumulating one row per render — the observation history lives in
+        `metrics` and `signals`, which keep every ten-minute reading whatever
+        the chat shows. `snapshot_id` and `sent_at` move with the content, and
+        that is what keeps `published_baseline` meaning "the last board readers
+        actually saw" once a board is edited in place instead of reposted.
+
+        `message_id` is passed only when the previous message was gone and a
+        fresh one replaced it; None leaves the stored id alone.
+        """
+        self.conn.execute(
+            "UPDATE reports SET content = ?, snapshot_id = ?, sent_at = ?,"
+            " telegram_message_id = COALESCE(?, telegram_message_id) WHERE id = ?",
+            (report.content, report.snapshot_id, to_iso(now_utc()), message_id, report_id),
+        )
 
     def mark_report_failed(self, report_id: int, status: DeliveryStatus) -> None:
         self.conn.execute(

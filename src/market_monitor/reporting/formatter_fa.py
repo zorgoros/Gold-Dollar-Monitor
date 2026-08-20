@@ -224,10 +224,17 @@ def render_snapshot(analysis: Analysis, config: ReportConfig) -> str:
         ]
         # Three lines of ±0.00% tell a reader nothing and imply a precision the
         # rounding does not have. Below the rounding boundary the section goes,
-        # rather than being printed empty of meaning (§18).
+        # rather than being printed empty of meaning (§18). A board rewritten
+        # every ten minutes spends much of a quiet session below that boundary,
+        # which is the intended noise control and not a missing section.
         if any(abs(value or 0.0) >= 0.005 for _, value in moves):
             lines += [
-                "↕ تغییر از آخرین گزارش",
+                # "since the previous update", not "since the last report": the
+                # board is now edited in place, so the previous state a reader
+                # saw is ten minutes back, not an hour. `published_baseline`
+                # still anchors it on what was actually displayed (BUG-007) —
+                # what moved is how often that display changes.
+                "↕ تغییر از به‌روزرسانی قبل",
                 " | ".join(f"{label} {signed_pct(value)}" for label, value in moves),
                 "",
             ]

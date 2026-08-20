@@ -145,35 +145,58 @@ posting every time it looks at a price.
 
 | | How often | Set by |
 |---|---|---|
-| **Collection** | every 30 min, 08:30–21:00 Tehran | the cron in `collect.yml` |
-| **Publication** | 4 snapshots + 2 analyses a day | `[schedule]` in `config/default.toml` |
-| **Message update** | not implemented | — see below |
+| **Collection** | every 10 min, 08:32–22:22 Tehran | the cron in `collect.yml` |
+| **Publication** | 13 slots a day, both report types on each | `[schedule]` in `config/default.toml` |
+| **Message update** | every collection run inside a slot after the first | the same `[schedule]` window |
 
 **Raising collection does not raise publication**, and that is a property of the
 code rather than a coincidence of the cron:
 
 1. `collect()` stores its raw observations on every run, whatever happens next.
-2. `due_report_types()` publishes only within `[schedule].slot_tolerance_minutes`
-   of a configured slot. Every other run gets an `adhoc` key and posts nothing.
-3. The second run *inside* one slot renders the same `report_type|slot|model_version`
-   key, and the unique index on delivered keys refuses it.
+2. `due_report_types()` publishes only within `[schedule].slot_window_minutes`
+   *after* a configured slot. Every other run gets an `adhoc` key and posts
+   nothing.
+3. The second run *inside* one slot renders the same
+   `report_type|slot|model_version` key. The unique index on delivered keys used
+   to refuse it; it now names the message that run must rewrite instead.
 
-So the 26 runs a day produce the same 6 messages that 6 runs a day did. The
-[`test_thirty_minute_collection_does_not_raise_the_post_rate`](../tests/integration/test_pipeline.py)
+So 84 runs a day still produce 26 messages — 13 price boards and 13 analyses,
+each posted once and then refreshed five times in place. The
+[`test_ten_minute_collection_does_not_raise_the_post_rate`](../tests/integration/test_pipeline.py)
 test walks the real cron through the shipped config and asserts exactly that.
 
-**`slot_tolerance_minutes` must stay under 30**, the collection interval. Above
-it, the run *before* a slot falls inside the slot's window and claims it, and the
-report goes out early. It was 90 when collection ran four times a day and a
-missed run meant a missed report; the next attempt is now 30 minutes away, so it
-can be tight enough to keep a post near its stated time. A test asserts the
-bound.
+**The window looks backward only.** A run belongs to the last slot it has
+*passed*, never to one still ahead. A scheduler starts a job late, not early —
+GitHub's ran 7 to 22 minutes past the mark on 2026-08-16 — so a symmetric
+tolerance is wrong in both directions at once. It let an early run claim the next
+slot and post ahead of its stated time, and on 2026-08-16 it dropped the 17:00
+slot outright, the two nearest runs landing 22.7 minutes early and 20.4 minutes
+late against a window of 20 either side.
 
-**Message update** — editing an already-published report instead of sending a new
-one — is not built. `reports.telegram_message_id` is recorded on every delivery
-and nothing reads it back yet; that column is the foundation the work would start
-from. Scope and open questions live in `EXTENSIONS.md` under *Configurable
-refresh and update-on-change engine* (AE) and *Telegram dashboard mode* (Y).
+**`slot_window_minutes` must stay under the gap between slots** — 60 minutes, as
+shipped. Above it one slot's window swallows the next, and that slot never gets a
+message of its own. A test asserts the bound against the config's own slot list
+rather than against a hard-coded number.
+
+**Message update** rewrites the slot's existing message rather than posting
+again. `reports.telegram_message_id` on the delivered row *is* the message id, so
+editing needs no registry of its own: a slot's message and a slot's report row
+have exactly the same lifetime. Three things follow, and each is worth knowing
+before changing the cadence:
+
+- The report row is the message, not an archive of every render. An edit moves
+  its `content`, `snapshot_id`, and `sent_at`, which is what keeps
+  `published_baseline` — and so `↕ تغییر از به‌روزرسانی قبل` — meaning the last
+  state a reader actually saw.
+- Telegram answering *message to edit not found* (an admin deleted the post)
+  makes the run post a fresh message and the row adopt it, rather than leaving
+  the slot dark until the next hour.
+- A delivered row with **no** message id is still refused outright. It means the
+  message went out and we never learned where, so posting again would double it.
+
+A flat market still spends one edit per run on a clock that moved and prices that
+did not. Change detection — edit only when something moved enough to matter — is
+`EXTENSIONS.md` AE, and it stays unbuilt until the thresholds are measured.
 
 ### On a VPS instead
 

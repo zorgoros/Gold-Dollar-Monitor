@@ -90,13 +90,13 @@ def test_display_config_does_not_change_what_is_analysed(repo, snapshot):
 def test_snapshot_prints_change_since_the_previous_report(repo, snapshot):
     publish_baseline(repo, snapshot(), {engine.USD_MARKET: 180_000.0}, AT - timedelta(hours=4))
     text = render_snapshot(analyze(snapshot(), repo, CONFIG), CONFIG_FA)
-    assert "↕ تغییر از آخرین گزارش" in text
+    assert "↕ تغییر از به‌روزرسانی قبل" in text
     assert "دلار +3.00%" in text
 
 
 def test_change_section_disappears_when_there_is_no_previous_report(repo, snapshot):
     text = render_snapshot(analyze(snapshot(), repo, CONFIG), CONFIG_FA)
-    assert "↕ تغییر از آخرین گزارش" not in text
+    assert "↕ تغییر از به‌روزرسانی قبل" not in text
 
 
 def test_a_flat_market_drops_the_change_section_rather_than_printing_zeroes(repo, snapshot):
@@ -112,14 +112,14 @@ def test_a_flat_market_drops_the_change_section_rather_than_printing_zeroes(repo
         AT - timedelta(hours=4),
     )
     text = render_snapshot(analyze(snapshot(coin=True), repo, CONFIG), CONFIG_FA)
-    assert "↕ تغییر از آخرین گزارش" not in text
+    assert "↕ تغییر از به‌روزرسانی قبل" not in text
     assert "0.00%" not in text
 
 
 def test_a_move_below_the_rounding_boundary_still_drops_the_section(repo, snapshot):
     """A change that renders as +0.00% is not a change the reader can act on."""
     publish_baseline(repo, snapshot(), {engine.USD_MARKET: 185_400.4}, AT - timedelta(hours=4))
-    assert "↕ تغییر از آخرین گزارش" not in render_snapshot(
+    assert "↕ تغییر از به‌روزرسانی قبل" not in render_snapshot(
         analyze(snapshot(), repo, CONFIG), CONFIG_FA
     )
 
@@ -133,7 +133,7 @@ def test_one_real_move_keeps_the_whole_section(repo, snapshot):
         AT - timedelta(hours=4),
     )
     text = render_snapshot(analyze(snapshot(), repo, CONFIG), CONFIG_FA)
-    assert "↕ تغییر از آخرین گزارش" in text
+    assert "↕ تغییر از به‌روزرسانی قبل" in text
     assert "دلار +0.00%" in text
     assert "طلا +6.39%" in text
 

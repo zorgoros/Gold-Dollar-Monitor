@@ -288,3 +288,53 @@ snapshots, metrics, and signals. It never reads Telegram text or recomputes
 economic values in JavaScript. Detailed cross-market analysis must use the
 existing session-alignment gate; if it cannot align a closed Tehran session to
 the world ounce, the UI shows an unavailable state rather than analysis data.
+
+## TASK-008 · hourly post edited every 10 minutes, both report types together · DONE
+**Family:** schedule,frequency,publication,message-update,telegram,edit,slot-tolerance
+**Raised:** 2026-08-20
+**Summary:** one post per hour carrying both report types, edited every ten
+minutes in place, so the channel shows a live board instead of a feed
+
+### Phases
+- [x] P1 — one-sided slot window: a run belongs to the last slot it has
+      *passed*, never to one still ahead. Closes the slot lost on 2026-08-16
+- [x] P2 — `editMessageText` in `publishers/telegram.py`, with re-send recovery
+      when Telegram reports the message gone
+- [x] P3 — `publish()` forks: first run in a slot sends, every later run in the
+      same slot edits the stored `telegram_message_id`
+- [x] P4 — config and cron: hourly slots for both report types, collection
+      every ten minutes, `slot_tolerance_minutes` → `slot_window_minutes`
+- [x] P5 — tests, `docs/OPERATIONS.md`, CHANGELOG, live dry-run
+
+### Notes
+Owner brief, 2026-08-20: "1 post/hour. And edit the current post per 10 minutes
+to update the data. both posts must come together either analytic or market.
+inside the post the time of the latest update must be shown."
+
+This is EXTENSIONS Y (dashboard mode) and AE (refresh engine) reduced to the
+case the owner actually asked for, and the reduction removes Y's hardest open
+question. Y asks whether a panel needs its own registry table because a panel
+outlives every report row. Here it does not: the post rotates hourly and is
+keyed by its slot, so `reports.telegram_message_id` on the
+`report_type|slot|model_version` row *is* the panel id. No new table.
+
+`pos check` flagged TASK-006 (DONE), which shipped two of its three frequencies
+and deferred message update to Y/AE. This entry is its successor, not a
+duplicate. TASK-007 also matched on `dashboard`; that is the web surface and is
+unrelated.
+
+Requirement 4 is already shipped — `🔄 آخرین به‌روزرسانی` in the status block
+(v1.2.1) reads the observation instant, so an edited post states its own
+freshness with no change.
+
+Decided, and the one reader-visible change: with a post edited every ten
+minutes, `published_baseline` anchors the change line on the previous *update*,
+not the previous hour. On edit the report row's `snapshot_id` and `sent_at`
+move to the current snapshot, which keeps the baseline consistent at the first
+send and at every edit alike, and `↕ تغییر از آخرین گزارش` is relabelled to say
+"since the previous update". BUG-007's fix stays intact and keeps doing its job.
+
+Known cost, accepted rather than engineered around: a flat market still burns
+one edit per tick for a clock that moved and prices that did not. That is what
+EXTENSIONS AE's change detection exists to fix, and it stays unbuilt until
+thresholds are measured (F/G/S).

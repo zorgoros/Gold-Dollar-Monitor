@@ -95,26 +95,32 @@ show_change_since_previous = true
 [schedule]
 # Three different frequencies, deliberately not one.
 #
-#   COLLECTION — every 30 minutes, set by the cron in
+#   COLLECTION — every 10 minutes, set by the cron in
 #     .github/workflows/collect.yml. Every cycle stores its raw observations
 #     whatever happens downstream; that history is the point of this phase.
-#   PUBLICATION — the two lists below, in Tehran local time. 4 snapshots and 2
-#     analyses per day (§36). No count or time is assumed anywhere in code.
-#   MESSAGE UPDATE — not implemented. The publisher only sends; editing an
-#     existing report is EXTENSIONS AE/Y and lands here when it exists.
+#   PUBLICATION — the two lists below, in Tehran local time. One message per
+#     slot per report type, and both types carry the same list, so a price
+#     board and an analysis always arrive together. No count or time is
+#     assumed anywhere in code (§4, §36).
+#   MESSAGE UPDATE — every collection run inside a slot's window after the
+#     first rewrites that slot's message instead of posting a second one. The
+#     board refreshes six times an hour while the channel gains two messages.
 #
-# A collection run that is not near a slot below publishes nothing, and the
-# second run inside one slot is refused by the delivered-key index. Raising the
-# collection rate therefore does not raise the post rate. See docs/OPERATIONS.md.
-snapshot = ["09:00", "13:00", "17:00", "21:00"]
-analysis = ["13:00", "21:00"]
-# A run this far from a configured slot gets its own adhoc key instead.
+# Raising the collection rate still does not raise the post rate. What changed
+# is what a second run inside one slot does with it: the delivered-key index
+# used to drop it, and now tells it which message to edit. See
+# docs/OPERATIONS.md.
+snapshot = ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00", "21:00"]
+analysis = ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00", "21:00"]
+# How long AFTER a slot a run still belongs to it. The window looks backward
+# only: a scheduler starts a job late, never early, so a run at 13:58 is the
+# 13:00 board being refreshed — not the 14:00 board arriving two minutes early.
 #
-# Must stay under the 30-minute collection interval, or the run before a slot
-# claims it and the report goes out early. It was 90 when collection ran only 4
-# times a day and a missed run meant a missed report; now the next attempt is 30
-# minutes away, so this can be tight enough to keep a post near its stated time.
-slot_tolerance_minutes = 20
+# Keep it under the gap between slots, or one slot's window swallows the next
+# and that slot never gets a message of its own. At 59 against hourly slots,
+# every run between 14:00 and 14:59 refreshes the 14:00 board, and a run that
+# has passed no slot at all still gets its own adhoc key and publishes nothing.
+slot_window_minutes = 59
 
 [reporting]
 # Optional operator line above the attribution (channel handle, site, etc).

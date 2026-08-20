@@ -17,7 +17,15 @@ from market_monitor.domain.enums import (
 )
 from market_monitor.domain.errors import ProviderUnavailable
 from market_monitor.jobs.collect import collect
-from market_monitor.jobs.report import base_analysis, due_report_types, prepare, store_analytics
+from market_monitor.jobs.report import (
+    SCHEDULE_KEY,
+    base_analysis,
+    due_report_types,
+    prepare,
+    scheduled_slot,
+    slot_window,
+    store_analytics,
+)
 from market_monitor.providers.tgju import TgjuProvider
 from market_monitor.settings import Settings
 from market_monitor.timeutil import TEHRAN, to_tehran
@@ -268,57 +276,96 @@ def test_every_displayed_instrument_is_actually_collected():
     assert analysed <= collected
 
 
-def test_schedule_defaults_are_four_snapshots_and_two_analyses():
+def test_both_report_types_are_published_on_the_same_hourly_slots():
+    """TASK-008: a price board and an analysis always arrive together.
+
+    The owner's requirement is a property of the two lists, not of code, so it
+    is asserted against the shipped config rather than against the scheduler.
+    """
     config = Settings.load(CONFIG_PATH).config["schedule"]
-    assert len(config["snapshot"]) == 4
-    assert len(config["analysis"]) == 2
+    assert config["snapshot"] == config["analysis"]
+    assert config["snapshot"] == [f"{hour:02d}:00" for hour in range(9, 22)]
 
 
-def test_thirty_minute_collection_does_not_raise_the_post_rate():
-    """The v1.2.1 guarantee: 26 collection runs a day, still 4 + 2 publications.
+def test_ten_minute_collection_does_not_raise_the_post_rate():
+    """84 collection runs a day, still 13 boards and 13 analyses.
 
-    Walks the exact cron in .github/workflows/collect.yml — every 30 minutes from
-    05:00 to 17:30 UTC — through the shipped config and counts what each run
-    would publish. A run that is not near a configured slot must get an adhoc key
-    and post nothing, which is what makes raising the collection rate free.
+    Walks the exact cron in .github/workflows/collect.yml — every ten minutes
+    from 05:02 to 18:52 UTC — through the shipped config. The five runs after the
+    first inside each slot must claim the same slot key, because that is what
+    routes them to an edit instead of a second post; runs past the last slot's
+    window must go adhoc and publish nothing.
     """
     from datetime import UTC, datetime
 
     shipped = Settings.load(CONFIG_PATH)
-    runs = [datetime(2026, 8, 12, 5, 0, tzinfo=UTC) + timedelta(minutes=30 * i) for i in range(26)]
-    assert to_tehran(runs[0]).strftime("%H:%M") == "08:30"
-    assert to_tehran(runs[-1]).strftime("%H:%M") == "21:00"
+    runs = [datetime(2026, 8, 12, 5, 2, tzinfo=UTC) + timedelta(minutes=10 * i) for i in range(84)]
+    assert to_tehran(runs[0]).strftime("%H:%M") == "08:32"
+    assert to_tehran(runs[-1]).strftime("%H:%M") == "22:22"
 
-    published = [(at, due_report_types(at, shipped)) for at in runs]
-    snapshots = [at for at, due in published if ReportType.MARKET_SNAPSHOT in due]
-    analyses = [at for at, due in published if ReportType.AYAR_ANALYSIS in due]
+    window = slot_window(shipped)
+    keys = {
+        report_type: {
+            scheduled_slot(at, shipped.slots(key), window)
+            for at in runs
+            if report_type in due_report_types(at, shipped)
+        }
+        for report_type, key in SCHEDULE_KEY.items()
+    }
+    # One distinct key per slot per type: 13 messages each, 26 in the channel.
+    assert len(keys[ReportType.MARKET_SNAPSHOT]) == 13
+    assert len(keys[ReportType.AYAR_ANALYSIS]) == 13
+    assert sum(len(k) for k in keys.values()) == 26
 
-    assert [to_tehran(at).strftime("%H:%M") for at in snapshots] == [
-        "09:00",
-        "13:00",
-        "17:00",
-        "21:00",
-    ]
-    assert [to_tehran(at).strftime("%H:%M") for at in analyses] == ["13:00", "21:00"]
-    assert sum(len(due) for _, due in published) == 6
+    due_runs = [at for at in runs if due_report_types(at, shipped)]
+    assert to_tehran(due_runs[0]).strftime("%H:%M") == "09:02"
+    assert to_tehran(due_runs[-1]).strftime("%H:%M") == "21:52"
+    # Six runs land in every slot; before 09:00 and after 21:59 none do.
+    assert len(due_runs) == 13 * 6
 
 
-def test_slot_tolerance_stays_under_the_collection_interval():
-    """Above 30 minutes the run *before* a slot claims it and posts early.
+def test_a_run_belongs_to_the_slot_it_has_passed_never_one_still_ahead():
+    """The 2026-08-16 defect: a symmetric window is wrong in both directions.
 
-    The tolerance was 90 when collection ran four times a day. Raising it back
-    without also slowing the cron is the quiet way to break publication timing,
-    so the invariant is asserted rather than left in a comment.
+    That day the 17:00 slot published nothing. GitHub started the two nearest
+    runs 22.7 minutes early and 20.4 minutes late against a window of 20 either
+    side, so neither claimed the slot and the report was lost outright. A
+    scheduler is late, never early, so the window only ever looks backward — and
+    a late run now refreshes the slot it passed rather than losing it.
     """
-    tolerance = Settings.load(CONFIG_PATH).config["schedule"]["slot_tolerance_minutes"]
-    assert tolerance < 30
+    from datetime import UTC, datetime
+
+    shipped = Settings.load(CONFIG_PATH)
+    slots = shipped.slots("snapshot")
+    window = slot_window(shipped)
+
+    early = datetime(2026, 8, 16, 13, 7, 19, tzinfo=UTC)  # 16:37 Tehran
+    late = datetime(2026, 8, 16, 13, 50, 22, tzinfo=UTC)  # 17:20 Tehran
+    assert scheduled_slot(early, slots, window) == "2026-08-16 16:00"
+    assert scheduled_slot(late, slots, window) == "2026-08-16 17:00"
+
+
+def test_the_slot_window_stays_under_the_gap_between_slots():
+    """Above the gap, one slot's window swallows the next and that slot is lost.
+
+    The window replaced a symmetric tolerance that had to stay under the
+    *collection* interval. What bounds it now is the spacing of the slots
+    themselves, so the invariant is asserted rather than left in a comment.
+    """
+    from datetime import datetime
+
+    config = Settings.load(CONFIG_PATH).config["schedule"]
+    slots = sorted({*config["snapshot"], *config["analysis"]})
+    marks = [datetime.strptime(slot, "%H:%M") for slot in slots]
+    gap = min((b - a).total_seconds() / 60 for a, b in zip(marks, marks[1:], strict=False))
+    assert config["slot_window_minutes"] < gap
 
 
 def test_due_report_types_follow_config_not_code(settings, tmp_path):
     from datetime import datetime
 
     config = json.loads(json.dumps(settings.config))
-    config["schedule"] = {"snapshot": ["10:00"], "analysis": ["18:00"], "slot_tolerance_minutes": 5}
+    config["schedule"] = {"snapshot": ["10:00"], "analysis": ["18:00"], "slot_window_minutes": 5}
     tuned = settings_from(config, tmp_path / "sched.db")
 
     at_ten = datetime(2026, 8, 12, 10, 0, tzinfo=TEHRAN)
@@ -363,6 +410,9 @@ def test_duplicate_publication_is_prevented_per_report_type(repo, settings, snap
             Fake.sent += 1
             return 42
 
+        def edit(self, report, message_id):
+            return True
+
         def health_check(self):
             return True
 
@@ -375,7 +425,9 @@ def test_duplicate_publication_is_prevented_per_report_type(repo, settings, snap
     first = publish(repo, report, Fake(), observation)
     second = publish(repo, report, Fake(), observation)
     assert first.published and first.report.delivery_status is DeliveryStatus.SENT
-    assert second.skipped_duplicate and not second.published
+    # One message per key still holds. The second run rewrites it (TASK-008)
+    # rather than adding a second post, which is what `Fake.sent` proves.
+    assert second.published and second.edited and not second.skipped_duplicate
     assert Fake.sent == 1
 
 

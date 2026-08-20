@@ -1,4 +1,4 @@
-"""Telegram delivery.
+"""Telegram delivery: post a message, or rewrite one already on the channel.
 
 The bot token never appears in a log line, an exception message, or a retry
 trace — errors here are constructed from the status code and body only.
@@ -7,6 +7,7 @@ trace — errors here are constructed from the status code and body only.
 from __future__ import annotations
 
 import time
+from typing import Any
 
 import httpx
 
@@ -14,6 +15,27 @@ from ..domain.errors import AuthenticationError, TelegramDeliveryError
 from ..domain.models import Report
 
 API = "https://api.telegram.org"
+
+# Two 400s from editMessageText are outcomes rather than failures.
+#
+# The first says the text sent is the text already there — a no-op, and the only
+# honest answer to it is "done". The second says the message is not there to
+# edit: an admin deleted it, or it aged out of what a bot may rewrite. Retrying
+# either is pointless; the second needs a fresh post instead.
+NOT_MODIFIED = "message is not modified"
+MESSAGE_GONE = ("message to edit not found", "message_id_invalid", "message can't be edited")
+
+
+class _MessageGone(Exception):
+    """Internal: the message id no longer names anything editable."""
+
+
+def _describe(response: httpx.Response) -> str:
+    """Telegram's `description`, lowercased. A proxy may answer in HTML instead."""
+    try:
+        return str(response.json().get("description", "")).lower()
+    except ValueError:
+        return ""
 
 
 class TelegramPublisher:
@@ -42,23 +64,44 @@ class TelegramPublisher:
     def _url(self, method: str) -> str:
         return f"{self.base_url}/bot{self._token}/{method}"
 
-    def publish(self, report: Report) -> int | None:
-        payload = {
+    def _payload(self, report: Report) -> dict[str, Any]:
+        return {
             "chat_id": self.chat_id,
             "text": report.content,
             "parse_mode": self.parse_mode,
             "disable_web_page_preview": self.disable_preview,
         }
+
+    def publish(self, report: Report) -> int | None:
+        return self._call("sendMessage", self._payload(report))
+
+    def edit(self, report: Report, message_id: int) -> bool:
+        """Rewrite a message already on the channel.
+
+        False means Telegram no longer has that message, so the caller should
+        post a fresh one and adopt its id rather than leave the hour dark.
+        """
+        payload = self._payload(report)
+        payload["message_id"] = message_id
+        try:
+            self._call("editMessageText", payload)
+        except _MessageGone:
+            return False
+        return True
+
+    def _call(self, method: str, payload: dict[str, Any]) -> int | None:
         last_error = "no attempt made"
         for attempt in range(self.max_retries):
             try:
-                response = self._client.post(self._url("sendMessage"), json=payload)
+                response = self._client.post(self._url(method), json=payload)
             except httpx.HTTPError as exc:
                 last_error = f"transport error: {type(exc).__name__}"
             else:
                 if response.status_code == 200:
-                    result = response.json().get("result", {})
-                    message_id = result.get("message_id")
+                    # editMessageText answers `true` for a message it cannot
+                    # return; only sendMessage's Message carries an id to store.
+                    result = response.json().get("result")
+                    message_id = result.get("message_id") if isinstance(result, dict) else None
                     return int(message_id) if message_id is not None else None
                 if response.status_code in (401, 403):
                     # Wrong token or the bot is not an admin of the channel. No retry.
@@ -72,6 +115,11 @@ class TelegramPublisher:
                     time.sleep(min(retry_after, 30))
                     continue
                 if response.status_code < 500:
+                    described = _describe(response)
+                    if NOT_MODIFIED in described:
+                        return None
+                    if any(gone in described for gone in MESSAGE_GONE):
+                        raise _MessageGone(described)
                     # 400: malformed text or bad chat id — retrying cannot fix it.
                     raise TelegramDeliveryError(
                         f"Telegram refused the message ({response.status_code}): "

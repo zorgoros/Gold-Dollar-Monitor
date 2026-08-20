@@ -44,29 +44,42 @@ SCHEDULE_KEY = {
 }
 
 
-DEFAULT_SLOT_TOLERANCE = timedelta(minutes=90)
+DEFAULT_SLOT_WINDOW = timedelta(minutes=59)
 
 
 def scheduled_slot(
-    moment: datetime, slots: list[str], tolerance: timedelta = DEFAULT_SLOT_TOLERANCE
+    moment: datetime, slots: list[str], window: timedelta = DEFAULT_SLOT_WINDOW
 ) -> str:
     """Name the configured slot this run belongs to, in Tehran local time.
 
-    Runs that do not line up with a configured slot get their own key, so a
-    manual run can never consume the scheduled slot's single delivery.
+    The window looks **backward only**: a run belongs to the last slot it has
+    already passed, never to one still ahead. A scheduler starts a job late, not
+    early — GitHub's ran 7 to 22 minutes past the cron mark on 2026-08-16 — so a
+    symmetric window is wrong in both directions at once. It let an early run
+    claim the next slot and post before the stated time, and it dropped that
+    day's 17:00 slot outright: the nearest runs landed 22.7 minutes early and
+    20.4 minutes late against a window of 20 either side, so neither claimed it.
+
+    A run that has passed no slot inside the window gets its own key, so a
+    manual run outside publishing hours still cannot consume a slot's message.
     """
     local = to_tehran(moment)
     for slot in slots:
         hour, _, minute = slot.partition(":")
         target = local.replace(hour=int(hour), minute=int(minute or 0), second=0, microsecond=0)
-        if abs(local - target) <= tolerance:
+        if timedelta(0) <= local - target <= window:
             return f"{local:%Y-%m-%d} {slot}"
     return f"{local:%Y-%m-%d %H:%M} adhoc"
 
 
-def slot_tolerance(settings: Settings) -> timedelta:
-    configured = settings.section("schedule").get("slot_tolerance_minutes")
-    return DEFAULT_SLOT_TOLERANCE if configured is None else timedelta(minutes=float(configured))
+def slot_window(settings: Settings) -> timedelta:
+    """How long after a slot a run still belongs to it (§4).
+
+    This is the editing window as much as the publishing one: every run inside
+    it after the first edits that slot's message rather than posting again.
+    """
+    configured = settings.section("schedule").get("slot_window_minutes")
+    return DEFAULT_SLOT_WINDOW if configured is None else timedelta(minutes=float(configured))
 
 
 def due_report_types(moment: datetime, settings: Settings) -> list[ReportType]:
@@ -75,10 +88,10 @@ def due_report_types(moment: datetime, settings: Settings) -> list[ReportType]:
     Counts and times live entirely in `[schedule]` (§4). A deployment that wants
     six snapshots and one analysis changes config and nothing else.
     """
-    tolerance = slot_tolerance(settings)
+    window = slot_window(settings)
     due = []
     for report_type, key in SCHEDULE_KEY.items():
-        slot = scheduled_slot(moment, settings.slots(key), tolerance)
+        slot = scheduled_slot(moment, settings.slots(key), window)
         if not slot.endswith("adhoc"):
             due.append(report_type)
     return due
@@ -110,6 +123,9 @@ class ReportOutcome:
     analysis: Analysis | None
     published: bool
     skipped_duplicate: bool
+    # True when the channel already had this slot's message and it was rewritten
+    # in place rather than a second one being posted.
+    edited: bool = False
 
 
 @dataclass(frozen=True)
@@ -159,7 +175,7 @@ def prepare(
     """Render one report type, applying the gate that report type demands."""
     config = report_config(settings)
     slot = scheduled_slot(
-        snapshot.snapshot_at, settings.slots(SCHEDULE_KEY[report_type]), slot_tolerance(settings)
+        snapshot.snapshot_at, settings.slots(SCHEDULE_KEY[report_type]), slot_window(settings)
     )
     publishable = (verdict.publishable if verdict else True) and observation is not None
     codes = list(verdict.codes) if verdict else []
@@ -232,14 +248,53 @@ def prepare(
 def publish(
     repo: Repository, report: Report, publisher: Publisher, analysis: Analysis | None = None
 ) -> ReportOutcome:
-    """Store the report, then deliver it unless this key already went out."""
-    if repo.already_delivered(report.report_key):
-        log.info("duplicate_suppressed", extra={"report_key": report.report_key})
+    """Put this slot's message on the channel, or bring the one there up to date.
+
+    One message per `report_type + slot + model_version` still holds; what a
+    second run inside the same slot does with it is what changed. It used to be
+    dropped as a duplicate, which is right for a feed and wrong for a board the
+    reader is expected to keep looking at. Now it rewrites the message, so the
+    slot posts once an hour and refreshes on every collection inside that hour.
+
+    A delivered row with no message id is the one case that still refuses: it
+    means the message went out and we never learned where, so posting again
+    would double it rather than replace it.
+    """
+    live = repo.delivered_report(report.report_key)
+    if live is not None:
+        message_id = live["telegram_message_id"]
+        if message_id is None:
+            log.info("duplicate_suppressed", extra={"report_key": report.report_key})
+            return ReportOutcome(
+                replace(report, delivery_status=DeliveryStatus.SKIPPED_DUPLICATE),
+                analysis,
+                published=False,
+                skipped_duplicate=True,
+            )
+        if publisher.edit(report, int(message_id)):
+            repo.mark_report_edited(live["id"], report)
+            return ReportOutcome(
+                replace(
+                    report,
+                    delivery_status=DeliveryStatus.SENT,
+                    telegram_message_id=int(message_id),
+                ),
+                analysis,
+                published=True,
+                skipped_duplicate=False,
+                edited=True,
+            )
+        # Telegram says that message is not there any more — an admin deleted it,
+        # or it aged out of what a bot may rewrite. Post a fresh one and let the
+        # row adopt it, rather than leaving the slot dark until the next hour.
+        log.warning("edit_target_missing", extra={"report_key": report.report_key})
+        replacement = publisher.publish(report)
+        repo.mark_report_edited(live["id"], report, replacement)
         return ReportOutcome(
-            replace(report, delivery_status=DeliveryStatus.SKIPPED_DUPLICATE),
+            replace(report, delivery_status=DeliveryStatus.SENT, telegram_message_id=replacement),
             analysis,
-            published=False,
-            skipped_duplicate=True,
+            published=True,
+            skipped_duplicate=False,
         )
 
     report_id = repo.save_report(report)

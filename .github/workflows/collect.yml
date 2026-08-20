@@ -13,18 +13,24 @@ name: collect
 
 on:
   schedule:
-    # Every 30 minutes from 05:00 to 17:30 UTC = 08:30 to 21:00 Asia/Tehran.
+    # Every 10 minutes from 05:02 to 18:52 UTC = 08:32 to 22:22 Asia/Tehran.
     # Iran abolished DST in 2022, so the +3:30 offset holds year-round, which is
     # why Tehran's o'clock lands on UTC's half hour.
     #
+    # Two minutes past, not on the minute: GitHub documents the top of the hour
+    # as its heaviest load window for scheduled runs, and a run here is already
+    # observed starting 7 to 22 minutes late without help.
+    #
     # This is the COLLECTION cadence, not the publication one. Publication is
-    # driven by [schedule].snapshot and [schedule].analysis in config/default.toml
-    # and is unchanged at 4 + 2 a day: a run that is not near a configured slot
-    # gets an adhoc key and publishes nothing, and the second run inside one slot
-    # is refused by the delivered-key index. The window ends at 21:00 Tehran
-    # because that is the last publication slot and a closed domestic market only
-    # restates its own close.
-    - cron: "0,30 5-17 * * *"
+    # driven by [schedule].snapshot and [schedule].analysis in
+    # config/default.toml: the first run inside an hourly slot posts a board and
+    # an analysis, and each of the five after it rewrites those two messages
+    # rather than adding more. So 84 runs a day still produce 26 messages.
+    #
+    # The window runs an hour past the 21:00 Tehran slot so that last board is
+    # refreshed for its full hour like every other. Runs after 21:59 Tehran have
+    # passed no slot, so they collect and publish nothing.
+    - cron: "2,12,22,32,42,52 5-18 * * *"
   workflow_dispatch:
     inputs:
       dry_run:

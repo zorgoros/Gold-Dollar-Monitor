@@ -97,7 +97,7 @@ def _emit(
             results.append(f"{report_type.value}:rendered")
             continue
         outcome = publish(repo, prepared.report, _publisher(settings), prepared.analysis)
-        state = "duplicate" if outcome.skipped_duplicate else "sent"
+        state = "duplicate" if outcome.skipped_duplicate else "edited" if outcome.edited else "sent"
         print(f"{report_type.value}: {state}{' (gated)' if prepared.gated else ''}")
         results.append(f"{report_type.value}:{state}")
     if not results:

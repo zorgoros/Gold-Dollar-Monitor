@@ -18,10 +18,45 @@ data, modular architecture, future widget/web/API expansion\
 
 # 0. v1.1 / v1.2 / v1.2.1 deltas
 
-Shipped 2026-08-12, 2026-08-13, and 2026-08-15. Everything below this section
+Shipped 2026-08-12, 2026-08-13, 2026-08-15, and 2026-08-20. Everything below this section
 describes V1 and remains accurate except where noted here. Detail lives in the
 document that owns each subject — this section records the *decisions*, not the
 specifications.
+
+**The channel is a board, not a feed.** One message per slot per report type,
+posted at the top of the hour and rewritten in place by every collection run
+inside that hour. Collection moves to every ten minutes; publication moves to
+thirteen hourly slots carrying *both* report types, so a price board and an
+analysis always arrive together. The count of messages a day rises from 6 to 26
+and the count of collection runs from 26 to 84 — those two numbers stay
+independent, which is the same property §4 has always claimed and is now
+carrying a third frequency.
+
+**A slot's message and a slot's report row have the same lifetime.** That is
+what makes editing cost no new storage: `reports.telegram_message_id` on the
+delivered row *is* the message id, and the row is the message rather than an
+archive of every render — an edit moves its `content`, `snapshot_id`, and
+`sent_at` with it. `EXTENSIONS.md` Y assumed a panel outlives every report row
+and therefore needs a registry table; an hourly panel does not, so the registry
+was not built. History is unaffected: `metrics` and `signals` keep every
+ten-minute reading whatever the chat shows.
+
+**The slot window looks backward only.** A run belongs to the last slot it has
+*passed*, never to one still ahead. A scheduler starts a job late, not early, so
+a symmetric tolerance was wrong in both directions at once: it let an early run
+claim the next slot and post ahead of its stated time, and on 2026-08-16 it lost
+the 17:00 slot outright — the two nearest runs landed 22.7 minutes early and
+20.4 minutes late against a window of 20 either side. `slot_tolerance_minutes`
+is renamed `slot_window_minutes` because the meaning changed, not just the
+bound; it is now capped by the gap between slots rather than by the collection
+interval.
+
+**"Change since the last report" becomes "since the previous update."** The
+anchor is unchanged — `Repository.published_baseline` still reads the metrics
+behind the last board a reader actually saw — but a board rewritten every ten
+minutes makes that board ten minutes old rather than hours. The label moved to
+match. What did *not* move is the rule underneath it: the number is measured
+against what was displayed, never against the last stored row (BUG-007).
 
 **v1.2.1 — the analytical model is frozen; collection is not.** No formula, no
 new indicator, and no new instrument. What changed is the rate at which
@@ -30,7 +65,8 @@ next phase is a clean historical dataset for the calibration §7 has always said
 these provisional bands need, not more analysis on top of uncalibrated numbers.
 
 **Three frequencies replace one.** *Collection* (every 30 minutes), *publication*
-(4 snapshots + 2 analyses a day), and *message update* (not built) are separate
+(4 snapshots + 2 analyses a day), and *message update* (not built then — see
+above) are separate
 concepts. They were previously one because the cron fired exactly at the
 publication slots; nothing in the code required that. Collection is now the
 faster of the two, and off-slot runs store their observations and publish

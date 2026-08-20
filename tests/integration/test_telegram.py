@@ -90,18 +90,80 @@ def test_missing_credentials_fail_before_any_request():
         TelegramPublisher(token="", chat_id="@channel")
 
 
+def test_edit_rewrites_the_named_message():
+    def handler(request):
+        assert request.url.path.endswith("/editMessageText")
+        body = request.read().decode()
+        assert '"message_id":4242' in body
+        return httpx.Response(200, json={"ok": True, "result": {"message_id": 4242}})
+
+    assert publisher_for(handler).edit(a_report(), 4242) is True
+
+
+def test_identical_text_is_an_outcome_not_a_failure():
+    """Telegram 400s when the new text equals the old one. Nothing to do is done."""
+
+    def handler(request):
+        return httpx.Response(
+            400, json={"ok": False, "description": "Bad Request: message is not modified"}
+        )
+
+    assert publisher_for(handler).edit(a_report(), 4242) is True
+
+
+def test_a_missing_message_asks_the_caller_for_a_fresh_post():
+    def handler(request):
+        return httpx.Response(
+            400, json={"ok": False, "description": "Bad Request: message to edit not found"}
+        )
+
+    assert publisher_for(handler).edit(a_report(), 4242) is False
+
+
+def test_a_real_edit_failure_still_raises():
+    def handler(request):
+        return httpx.Response(400, json={"ok": False, "description": "can't parse entities"})
+
+    with pytest.raises(TelegramDeliveryError):
+        publisher_for(handler).edit(a_report(), 4242)
+
+
+def test_a_non_json_error_body_does_not_crash_the_publisher():
+    """A proxy or gateway can answer in HTML; `description` is not guaranteed."""
+
+    def handler(request):
+        return httpx.Response(400, text="<html>Bad Request</html>")
+
+    with pytest.raises(TelegramDeliveryError):
+        publisher_for(handler).edit(a_report(), 4242)
+
+
 class FakePublisher:
     channel = "telegram"
 
-    def __init__(self):
+    def __init__(self, message_present=True):
         self.sent = 0
+        self.edits = []
+        self.message_present = message_present
 
     def publish(self, report):
         self.sent += 1
         return 100 + self.sent
 
+    def edit(self, report, message_id):
+        if not self.message_present:
+            return False
+        self.edits.append((message_id, report.content))
+        return True
 
-def test_a_second_run_of_the_same_slot_does_not_send_twice(repo, snapshot):
+
+def test_a_second_run_of_the_same_slot_edits_rather_than_posting_again(repo, snapshot):
+    """TASK-008: one message per slot, refreshed by every run inside the slot.
+
+    The delivered-key index used to drop the second run outright. It now names
+    the message the second run must rewrite, which is the whole of the change —
+    the channel still gains one message per slot per report type.
+    """
     from market_monitor.analysis.engine import analyze
     from tests.integration.test_engine import CONFIG
 
@@ -112,8 +174,55 @@ def test_a_second_run_of_the_same_slot_does_not_send_twice(repo, snapshot):
     second = publish(repo, a_report("slot-1"), publisher, analysis)
 
     assert first.published and first.report.telegram_message_id == 101
-    assert second.skipped_duplicate and not second.published
+    assert not first.edited
+    assert second.published and second.edited and not second.skipped_duplicate
     assert publisher.sent == 1
+    assert publisher.edits == [(101, second.report.content)]
+
+
+def test_an_edit_of_a_deleted_message_posts_a_fresh_one_and_adopts_it(repo, snapshot):
+    """An admin deleting the post must not leave the slot dark until the next.
+
+    Telegram answers "message to edit not found" instead of editing something,
+    and the row follows the replacement, so the run after this one edits the new
+    message rather than posting a third.
+    """
+    from market_monitor.analysis.engine import analyze
+    from tests.integration.test_engine import CONFIG
+
+    analysis = analyze(snapshot(), repo, CONFIG)
+    publisher = FakePublisher()
+    first = publish(repo, a_report("slot-3"), publisher, analysis)
+
+    publisher.message_present = False
+    replaced = publish(repo, a_report("slot-3"), publisher, analysis)
+    assert replaced.published and not replaced.edited
+    assert publisher.sent == 2
+    assert replaced.report.telegram_message_id != first.report.telegram_message_id
+
+    publisher.message_present = True
+    again = publish(repo, a_report("slot-3"), publisher, analysis)
+    assert again.edited and publisher.sent == 2
+    assert publisher.edits[-1][0] == replaced.report.telegram_message_id
+
+
+def test_a_delivered_report_with_no_message_id_is_still_refused(repo, snapshot):
+    """The one case that must never post twice: sent, but we never learned where."""
+    from market_monitor.analysis.engine import analyze
+    from tests.integration.test_engine import CONFIG
+
+    class Anonymous(FakePublisher):
+        def publish(self, report):
+            super().publish(report)
+            return None
+
+    analysis = analyze(snapshot(), repo, CONFIG)
+    publisher = Anonymous()
+    publish(repo, a_report("slot-4"), publisher, analysis)
+    second = publish(repo, a_report("slot-4"), publisher, analysis)
+
+    assert second.skipped_duplicate and not second.published
+    assert publisher.sent == 1 and publisher.edits == []
 
 
 def test_a_failed_delivery_is_recorded_and_can_be_retried_later(repo, snapshot):

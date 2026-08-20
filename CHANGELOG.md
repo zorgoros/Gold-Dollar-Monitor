@@ -2,6 +2,61 @@
 
 ## Unreleased
 
+**One post an hour, refreshed every ten minutes** (TASK-008, EXTENSIONS Y)
+
+The channel was a feed: six messages a day, each a snapshot of the moment it was
+sent and stale by the time anyone read it. It is now a board.
+
+- Thirteen hourly slots, 09:00–21:00 Tehran, and **both report types are on
+  every slot** — a price board and an analysis always arrive together.
+- The first run inside a slot posts the two messages. Each of the five after it
+  rewrites them in place via `editMessageText`. So 84 collection runs a day
+  produce 26 messages, and the board a reader is looking at is never more than
+  ten minutes old.
+- Collection moves to every ten minutes, 08:32–22:22 Tehran. The cron sits two
+  minutes past rather than on the mark: GitHub documents the top of the hour as
+  its heaviest window for scheduled runs, and runs here were already starting 7
+  to 22 minutes late without help.
+- `🔄 آخرین به‌روزرسانی` needed no change. It has read the observation instant
+  since v1.2.1, so an edited message already states its own freshness.
+
+No new storage. `reports.telegram_message_id` on the delivered row *is* the
+message id, because an hourly panel and its report row have exactly the same
+lifetime — the registry table EXTENSIONS Y assumed a panel would need is not
+needed for a panel that rotates. The row is the message rather than an archive of
+every render: an edit moves its `content`, `snapshot_id`, and `sent_at`.
+`metrics` and `signals` still record every ten-minute reading, so nothing about
+the stored history depends on what the chat currently shows.
+
+**Fix: a late run no longer loses its slot**
+
+`[schedule].slot_tolerance_minutes` → **`slot_window_minutes`**, renamed because
+the meaning changed and not only the bound. The window now looks *backward only*:
+a run belongs to the last slot it has passed, never to one still ahead.
+
+A symmetric tolerance was wrong in both directions at once. It let a run arrive
+early enough to claim the next slot and post ahead of its stated time, and on
+2026-08-16 — the first full day on the 30-minute cadence — it lost the 17:00
+snapshot outright. The two nearest runs landed 22.7 minutes early and 20.4
+minutes late against a window of 20 either side, so neither claimed the slot and
+five of six reports went out that day. What bounds the value now is the gap
+between slots, not the collection interval, and a test asserts that against the
+config's own slot list.
+
+**`↕ تغییر از آخرین گزارش` → `↕ تغییر از به‌روزرسانی قبل`**
+
+The anchor is unchanged: `Repository.published_baseline` still reads the metrics
+behind the last board a reader actually saw, never the last stored row (BUG-007).
+What changed is that a board rewritten every ten minutes makes "the last thing
+you saw" ten minutes old rather than hours, so the label moved to say so. Below
+±0.005% the section still drops entirely, which on a quiet session is most of the
+time — that is the intended noise control, not a missing section.
+
+**Known cost, recorded rather than engineered around**: a flat market still
+spends one edit per run on a clock that moved and prices that did not. Editing
+only when something moved enough to matter is `EXTENSIONS.md` AE, and it stays
+unbuilt until the thresholds are measured (F/G/S).
+
 **`market-monitor backfill` — history is no longer only what we watched happen**
 (GAP-002, spec §30)
 

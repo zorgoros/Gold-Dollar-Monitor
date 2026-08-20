@@ -1,8 +1,10 @@
 # /etc/cron.d/market-monitor
 # This is the COLLECTION cadence and it is deliberately faster than publication.
 # It must fire at least at the UNION of [schedule].snapshot and
-# [schedule].analysis in config/default.toml; the runs in between store their
-# observations and publish nothing (docs/OPERATIONS.md, "Scheduling").
+# [schedule].analysis in config/default.toml. The first run inside a slot posts
+# that slot's two messages; the runs after it rewrite those messages in place,
+# which is what makes ten-minute collection cost no extra posts
+# (docs/OPERATIONS.md, "Scheduling").
 #
 # For the VPS deployment. The default deployment is GitHub Actions and lives in
 # .github/workflows/collect.yml — the same schedule in UTC. Run one or the
@@ -10,5 +12,5 @@
 CRON_TZ=Asia/Tehran
 SHELL=/bin/bash
 
-0,30 8-21 * * * monitor cd /srv/market-monitor && .venv/bin/market-monitor run-once >> logs/run.log 2>&1
+*/10 8-22 * * * monitor cd /srv/market-monitor && .venv/bin/market-monitor run-once >> logs/run.log 2>&1
 30 2 * * *        monitor /srv/market-monitor/scripts/backup_db.sh /var/backups/market-monitor >> /srv/market-monitor/logs/backup.log 2>&1
